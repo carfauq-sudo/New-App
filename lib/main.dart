@@ -45,17 +45,49 @@ class LandingPage extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
+      // Placeholder bottom nav: highlights "Home" and does nothing on tap yet.
+      bottomNavigationBar: NavigationBar(
+        backgroundColor: AppColors.surface,
+        indicatorColor: AppColors.accent.withValues(alpha: 0.18),
+        surfaceTintColor: Colors.transparent,
+        selectedIndex: 0,
+        onDestinationSelected: (_) {},
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined, color: AppColors.textSecondary),
+            selectedIcon: Icon(Icons.home, color: AppColors.accent),
+            label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.directions_car_outlined,
+                color: AppColors.textSecondary),
+            selectedIcon:
+                Icon(Icons.directions_car, color: AppColors.accent),
+            label: 'My Vehicle',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline, color: AppColors.textSecondary),
+            selectedIcon: Icon(Icons.person, color: AppColors.accent),
+            label: 'Profile',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined, color: AppColors.textSecondary),
+            selectedIcon: Icon(Icons.settings, color: AppColors.accent),
+            label: 'Settings',
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ---- Top third: My Vehicle ----
+            // ---- Top 40%: My Vehicle ----
             SizedBox(
-              height: screenHeight / 3,
+              height: screenHeight * 0.4,
               child: const _MyVehicleSection(),
             ),
 
-            // ---- Bottom two-thirds: navigation ----
+            // ---- Remaining space: navigation ----
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
@@ -99,7 +131,6 @@ class _MyVehicleSection extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.end,
         children: [
           Text(
             'My vehicle',
@@ -111,7 +142,7 @@ class _MyVehicleSection extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            '2019 Honda Civic EX',
+            '2026 Toyota Tacoma SR5',
             style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 28,
@@ -119,7 +150,18 @@ class _MyVehicleSection extends StatelessWidget {
               height: 1.1,
             ),
           ),
-          const SizedBox(height: 10),
+          // Vehicle image sits under the name and takes the remaining space.
+          // The photo has a near-black background, so it blends into the
+          // dark theme.
+          Expanded(
+            child: Center(
+              child: Image.asset(
+                'assets/images/tacoma.png',
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
           Row(
             children: [
               const Text(
