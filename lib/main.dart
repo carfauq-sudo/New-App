@@ -3,6 +3,7 @@ import 'package:model_viewer_plus/model_viewer_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import 'maintenance_record.dart';
+import 'scheduled_maintenance.dart';
 
 void main() {
   runApp(const MaintenanceGoApp());
@@ -153,10 +154,15 @@ class LandingPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const _NavCard(
+                  _NavCard(
                     title: 'Maintenance calendar',
                     subtitle: 'What\'s due, and when',
                     icon: Icons.calendar_month_outlined,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const MaintenanceCalendarPage(),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -1358,6 +1364,9 @@ const _partOptions = [
   'Rear › Tailgate',
   'Rear › Brake lights',
   'Rear › Bed',
+  'Engine',
+  'Interior',
+  'Drivetrain',
   'Other',
 ];
 
@@ -1705,6 +1714,806 @@ class _ItemRow extends StatelessWidget {
             tooltip: 'Remove item',
           ),
       ],
+    );
+  }
+}
+
+// ---- Maintenance calendar page ----
+// A month grid. Days with scheduled maintenance are softly highlighted in
+// amber and show short labels inside the box. Tapping a highlighted day opens
+// a sheet with the full details. The arrows in the header change months.
+class MaintenanceCalendarPage extends StatefulWidget {
+  const MaintenanceCalendarPage({super.key});
+
+  @override
+  State<MaintenanceCalendarPage> createState() =>
+      _MaintenanceCalendarPageState();
+}
+
+class _MaintenanceCalendarPageState extends State<MaintenanceCalendarPage> {
+  static const _monthNames = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+  static const _weekdayLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+  // First day of the month being shown.
+  late DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
+
+  // Copy of the placeholder list so new items can be added. Like the log,
+  // this only lives in memory until the storage layer exists.
+  final List<ScheduledMaintenance> _scheduled = [...placeholderScheduled];
+
+  void _changeMonth(int delta) {
+    setState(() => _month = DateTime(_month.year, _month.month + delta));
+  }
+
+  void _showAddOptions() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Schedule maintenance',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              _AddOptionTile(
+                icon: Icons.edit_calendar_outlined,
+                title: 'Schedule manually',
+                subtitle: 'Pick a date and fill in the details',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _addManually();
+                },
+              ),
+              // TODO(future): describe what you need and an AI model picks the
+              // date and details. Not built yet.
+              _AddOptionTile(
+                icon: Icons.auto_awesome_outlined,
+                title: 'Schedule with AI',
+                subtitle: 'Describe it and let AI set it up',
+                comingSoon: true,
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'AI scheduling is coming in a future update',
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _addManually() async {
+    final item = await Navigator.of(context).push<ScheduledMaintenance>(
+      MaterialPageRoute(builder: (_) => const AddScheduledPage()),
+    );
+    if (item != null) {
+      setState(() {
+        _scheduled.add(item);
+        // Jump to the month it landed in so the new item is visible.
+        _month = DateTime(item.date.year, item.date.month);
+      });
+    }
+  }
+
+  // Full details for one day, in a bottom sheet.
+  void _showDay(int day, List<ScheduledMaintenance> items) {
+    final date = DateTime(_month.year, _month.month, day);
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.75,
+      ),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          children: [
+            Text(
+              formatDate(date),
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              items.length == 1
+                  ? '1 item scheduled'
+                  : '${items.length} items scheduled',
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            for (final item in items) _ScheduledItemCard(item: item),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final today = DateTime.now();
+    final daysInMonth = DateTime(_month.year, _month.month + 1, 0).day;
+    // Weeks start on Sunday. DateTime.weekday is Mon=1..Sun=7, so `% 7` gives
+    // Sun=0..Sat=6 = number of blank cells before the 1st.
+    final leadingBlanks = _month.weekday % 7;
+    final rows = ((leadingBlanks + daysInMonth) / 7).ceil();
+
+    // Scheduled items in this month, grouped by day of the month.
+    final byDay = <int, List<ScheduledMaintenance>>{};
+    for (final m in _scheduled) {
+      if (m.date.year == _month.year && m.date.month == _month.month) {
+        byDay.putIfAbsent(m.date.day, () => []).add(m);
+      }
+    }
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
+        title: const Text(
+          'Maintenance calendar',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        actions: [
+          IconButton(
+            onPressed: _showAddOptions,
+            icon: const Icon(Icons.add, color: AppColors.accent),
+            tooltip: 'Schedule maintenance',
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  onPressed: () => _changeMonth(-1),
+                  icon: const Icon(
+                    Icons.chevron_left,
+                    color: AppColors.textSecondary,
+                  ),
+                  tooltip: 'Previous month',
+                ),
+                Expanded(
+                  child: Text(
+                    '${_monthNames[_month.month - 1]} ${_month.year}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => _changeMonth(1),
+                  icon: const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textSecondary,
+                  ),
+                  tooltip: 'Next month',
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                for (final letter in _weekdayLetters)
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        letter,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // The grid: 7 columns, as many rows as the month needs. Cells draw
+            // their own right/bottom lines so the whole thing reads as a grid.
+            Container(
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: GridView.count(
+                crossAxisCount: 7,
+                childAspectRatio: 0.62, // taller than wide, room for labels
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  for (var i = 0; i < rows * 7; i++)
+                    _DayCell(
+                      day:
+                          (i - leadingBlanks + 1 >= 1 &&
+                              i - leadingBlanks + 1 <= daysInMonth)
+                          ? i - leadingBlanks + 1
+                          : null,
+                      items: byDay[i - leadingBlanks + 1] ?? const [],
+                      isToday:
+                          today.year == _month.year &&
+                          today.month == _month.month &&
+                          today.day == i - leadingBlanks + 1,
+                      lineRight: i % 7 != 6,
+                      lineBottom: i ~/ 7 != rows - 1,
+                      onTap: byDay[i - leadingBlanks + 1] == null
+                          ? null
+                          : () => _showDay(
+                              i - leadingBlanks + 1,
+                              byDay[i - leadingBlanks + 1]!,
+                            ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Container(
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'Maintenance scheduled. Tap a day for details.',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// One box in the month grid: the day number, plus short labels for anything
+// scheduled that day (up to two, then "+N more").
+class _DayCell extends StatelessWidget {
+  final int? day; // null = blank filler cell before the 1st / after the last
+  final List<ScheduledMaintenance> items;
+  final bool isToday;
+  final bool lineRight;
+  final bool lineBottom;
+  final VoidCallback? onTap;
+
+  const _DayCell({
+    required this.day,
+    required this.items,
+    required this.isToday,
+    required this.lineRight,
+    required this.lineBottom,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const maxShown = 2;
+    final scheduled = items.isNotEmpty;
+    final extra = items.length - maxShown;
+
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(3, 4, 3, 3),
+        decoration: BoxDecoration(
+          // Soft transparent amber on days with maintenance.
+          color: scheduled ? AppColors.accent.withValues(alpha: 0.18) : null,
+          border: Border(
+            right: lineRight
+                ? const BorderSide(color: AppColors.border)
+                : BorderSide.none,
+            bottom: lineBottom
+                ? const BorderSide(color: AppColors.border)
+                : BorderSide.none,
+          ),
+        ),
+        child: day == null
+            ? null
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Today's number sits in a small outlined circle.
+                  Container(
+                    width: 20,
+                    height: 20,
+                    alignment: Alignment.center,
+                    decoration: isToday
+                        ? BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppColors.textSecondary,
+                              width: 1.5,
+                            ),
+                          )
+                        : null,
+                    child: Text(
+                      '$day',
+                      style: TextStyle(
+                        color: scheduled
+                            ? AppColors.accent
+                            : AppColors.textPrimary,
+                        fontSize: 12,
+                        fontWeight: scheduled || isToday
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  for (final item in items.take(maxShown))
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 3,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.accent.withValues(alpha: 0.28),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Text(
+                          item.shortLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.clip,
+                          softWrap: false,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 8.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (extra > 0)
+                    Text(
+                      '+$extra more',
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 8,
+                      ),
+                    ),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+// Detail card for one scheduled item, shown in the day sheet.
+class _ScheduledItemCard extends StatelessWidget {
+  final ScheduledMaintenance item;
+
+  const _ScheduledItemCard({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            item.title,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            item.part,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (item.dueMileage != null)
+            _DetailRow('Due at', formatMiles(item.dueMileage!)),
+          if (item.estimatedCents != null)
+            _DetailRow(
+              'Est. cost',
+              item.estimatedCents == 0
+                  ? 'Free if DIY'
+                  : formatMoney(item.estimatedCents!),
+            ),
+          if (item.notes.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              item.notes,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+                height: 1.35,
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          const Divider(height: 1, color: AppColors.border),
+          const SizedBox(height: 14),
+          _DiyVideosSection(taskName: item.title),
+        ],
+      ),
+    );
+  }
+}
+
+// "Do it yourself" help for a scheduled item: credible YouTube how-to videos
+// picked by AI. Placeholder only for now (no AI, no YouTube connection); the
+// sparkle icon marks it as an AI feature.
+//
+// TODO(future): search YouTube for this task on this vehicle, have an AI model
+// pick trustworthy videos, and open them when tapped. The AI's picks should be
+// shown as suggestions the user can judge, not as guaranteed-correct advice,
+// and safety-critical jobs (like brakes) should still point to a mechanic.
+class _DiyVideosSection extends StatelessWidget {
+  final String taskName;
+
+  const _DiyVideosSection({required this.taskName});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.auto_awesome, color: AppColors.accent, size: 18),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Do it yourself',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Text(
+                'AI',
+                style: TextStyle(
+                  color: AppColors.accent,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'AI will find trusted, well-reviewed YouTube videos that show how '
+          'to do this job yourself, matched to your vehicle. '
+          '(Placeholder text.)',
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 13,
+            height: 1.35,
+          ),
+        ),
+        const SizedBox(height: 12),
+        _VideoTile(title: 'How to: $taskName', meta: 'Channel name · 8:24'),
+        const SizedBox(height: 8),
+        _VideoTile(
+          title: '$taskName on a Toyota Tacoma',
+          meta: 'Channel name · 12:05',
+        ),
+      ],
+    );
+  }
+}
+
+// One placeholder video row: play thumbnail, title, channel and length.
+class _VideoTile extends StatelessWidget {
+  final String title;
+  final String meta;
+
+  const _VideoTile({required this.title, required this.meta});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 84,
+          height: 48,
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: const Icon(
+            Icons.play_arrow_rounded,
+            color: AppColors.textSecondary,
+            size: 28,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                meta,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---- Schedule maintenance page (manual entry) ----
+// A simple form. When saved it returns a ScheduledMaintenance to the calendar.
+// Later, the vehicle manual / VIN data and the AI option will fill in items
+// like this automatically.
+class AddScheduledPage extends StatefulWidget {
+  const AddScheduledPage({super.key});
+
+  @override
+  State<AddScheduledPage> createState() => _AddScheduledPageState();
+}
+
+class _AddScheduledPageState extends State<AddScheduledPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _title = TextEditingController();
+  final _label = TextEditingController();
+  final _mileage = TextEditingController();
+  final _cost = TextEditingController();
+  final _notes = TextEditingController();
+
+  String _part = _partOptions.first;
+  DateTime _date = DateTime.now();
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _label.dispose();
+    _mileage.dispose();
+    _cost.dispose();
+    _notes.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: DateTime(now.year + 10),
+    );
+    if (picked != null) setState(() => _date = picked);
+  }
+
+  // Short text for the calendar box: what the user typed, otherwise the first
+  // word of the title (cut to fit).
+  String _shortLabel() {
+    final typed = _label.text.trim();
+    if (typed.isNotEmpty) return typed;
+    final firstWord = _title.text.trim().split(' ').first;
+    return firstWord.length > 7 ? firstWord.substring(0, 7) : firstWord;
+  }
+
+  void _save() {
+    if (!_formKey.currentState!.validate()) return;
+    final miles = int.tryParse(_mileage.text.trim());
+    final dollars = double.tryParse(_cost.text.trim());
+    Navigator.pop(
+      context,
+      ScheduledMaintenance(
+        title: _title.text.trim(),
+        shortLabel: _shortLabel(),
+        date: _date,
+        part: _part,
+        dueMileage: miles,
+        estimatedCents: dollars == null ? null : (dollars * 100).round(),
+        notes: _notes.text.trim(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const gap = SizedBox(height: 14);
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
+        title: const Text(
+          'Schedule maintenance',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: _save,
+            child: const Text(
+              'Save',
+              style: TextStyle(color: AppColors.accent, fontSize: 16),
+            ),
+          ),
+        ],
+      ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          children: [
+            TextFormField(
+              controller: _title,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _fieldDecoration(
+                'What needs to be done',
+                hint: 'e.g. Oil change',
+              ),
+              textCapitalization: TextCapitalization.sentences,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Required' : null,
+            ),
+            gap,
+            _PickerField(
+              label: 'Date',
+              value: formatDate(_date),
+              onTap: _pickDate,
+            ),
+            gap,
+            DropdownButtonFormField<String>(
+              initialValue: _part,
+              dropdownColor: AppColors.surface,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _fieldDecoration('Part'),
+              items: [
+                for (final p in _partOptions)
+                  DropdownMenuItem(value: p, child: Text(p)),
+              ],
+              onChanged: (v) => setState(() => _part = v ?? _part),
+            ),
+            gap,
+            TextFormField(
+              controller: _label,
+              style: const TextStyle(color: AppColors.textPrimary),
+              maxLength: 8,
+              decoration: _fieldDecoration(
+                'Calendar label (optional)',
+                hint: 'Short text shown in the box',
+              ),
+            ),
+            TextFormField(
+              controller: _mileage,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _fieldDecoration('Due at mileage (optional)'),
+              keyboardType: TextInputType.number,
+            ),
+            gap,
+            TextFormField(
+              controller: _cost,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _fieldDecoration(
+                'Estimated cost (optional)',
+                hint: '0.00',
+              ),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+            ),
+            gap,
+            TextFormField(
+              controller: _notes,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _fieldDecoration('Notes (optional)'),
+              minLines: 3,
+              maxLines: 6,
+              textCapitalization: TextCapitalization.sentences,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

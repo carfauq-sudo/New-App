@@ -158,6 +158,20 @@ in `lib/main.dart`. Design direction:
   up as a suggestion the user can review and correct (it should fill in the
   manual entry form), never as silent authority. Still to decide: which model
   or API, and how to handle offline use.
+- **Auto-populated maintenance calendar.** The calendar currently shows
+  placeholder items, plus whatever the user schedules by hand. Eventually it
+  should fill itself in from the vehicle manual's service schedule, or from
+  VIN-decoded vehicle data (NHTSA VIN decode API) and service intervals. This
+  ties to the open question of whether NHTSA data alone is precise enough.
+- **AI scheduling.** The "Schedule with AI" option in the calendar's + menu is
+  a "Coming soon" placeholder. Like the other AI features, its output should
+  be a suggestion the user reviews, not silent authority.
+- **AI-picked YouTube DIY videos on the calendar.** Each scheduled item's
+  detail card has a "Do it yourself" section with placeholder text and fake
+  video rows, marked with the AI sparkle icon. Later: search YouTube for the
+  task on this vehicle, have an AI model pick credible videos, and open them
+  on tap. Show them as suggestions, and keep safety-critical jobs (e.g.
+  brakes) pointing to a mechanic per the guardrails above.
 - **Local storage for maintenance records.** Logs added through the manual
   form currently live only in memory and disappear on restart. The data model
   (`lib/maintenance_record.dart`) exists; the storage layer does not.
