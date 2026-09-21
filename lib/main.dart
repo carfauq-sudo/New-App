@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:model_viewer_plus/model_viewer_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import 'maintenance_record.dart';
+
 void main() {
   runApp(const MaintenanceGoApp());
 }
@@ -139,14 +141,19 @@ class LandingPage extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: const [
+                children: [
                   _NavCard(
                     title: 'Maintenance logs',
                     subtitle: 'Every service, receipt, and repair',
                     icon: Icons.receipt_long_outlined,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const MaintenanceLogPage(),
+                      ),
+                    ),
                   ),
-                  SizedBox(height: 16),
-                  _NavCard(
+                  const SizedBox(height: 16),
+                  const _NavCard(
                     title: 'Maintenance calendar',
                     subtitle: 'What\'s due, and when',
                     icon: Icons.calendar_month_outlined,
@@ -666,56 +673,1038 @@ class _NavCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final IconData icon;
+  final VoidCallback? onTap; // null = placeholder that does nothing yet
 
   const _NavCard({
     required this.title,
     required this.subtitle,
     required this.icon,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Material + InkWell gives the card a press ripple.
+    return Material(
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: AppColors.border, width: 1),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Icon(icon, color: AppColors.accent, size: 26),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right,
+                color: AppColors.textSecondary,
+                size: 22,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---- Maintenance log page ----
+// Opened from the "Maintenance logs" card on the home page. A scrollable list
+// of service records, newest first. Tapping one opens its full detail page;
+// the + button at the top right adds a new one.
+//
+// NOTE: records added here only live in memory for now (they disappear when
+// the app restarts) because the local storage layer isn't built yet.
+class MaintenanceLogPage extends StatefulWidget {
+  const MaintenanceLogPage({super.key});
+
+  @override
+  State<MaintenanceLogPage> createState() => _MaintenanceLogPageState();
+}
+
+class _MaintenanceLogPageState extends State<MaintenanceLogPage> {
+  // Copy of the placeholder list so new entries can be added to it.
+  final List<MaintenanceRecord> _records = [...placeholderRecords];
+
+  void _showAddOptions() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Add a maintenance log',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              _AddOptionTile(
+                icon: Icons.edit_outlined,
+                title: 'Enter manually',
+                subtitle: 'Type in the details yourself',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _addManually();
+                },
+              ),
+              // TODO(future): receipt photo needs camera / photo-library
+              // access plus AI receipt parsing. Not built yet.
+              _AddOptionTile(
+                icon: Icons.photo_camera_outlined,
+                title: 'Receipt picture',
+                subtitle: 'Snap a receipt and fill in the log for you',
+                comingSoon: true,
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _showComingSoon('Receipt scanning');
+                },
+              ),
+              // TODO(future): needs an AI model to summarize the mechanic's
+              // report into a log entry. Not built yet.
+              _AddOptionTile(
+                icon: Icons.auto_awesome_outlined,
+                title: 'Mechanic report (AI summary)',
+                subtitle: 'Summarize a mechanic\'s report into a log',
+                comingSoon: true,
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _showComingSoon('AI report summary');
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _addManually() async {
+    final record = await Navigator.of(context).push<MaintenanceRecord>(
+      MaterialPageRoute(builder: (_) => const AddMaintenancePage()),
+    );
+    if (record != null) {
+      setState(() {
+        _records.add(record);
+        _records.sort((a, b) => b.date.compareTo(a.date)); // newest first
+      });
+    }
+  }
+
+  // Opens a record's detail page. The page reports back `true` if the user
+  // deleted the log, so we can remove it from the list.
+  Future<void> _openDetail(MaintenanceRecord record) async {
+    final deleted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => MaintenanceDetailPage(record: record)),
+    );
+    if (deleted == true) {
+      setState(() => _records.removeWhere((r) => r.id == record.id));
+      _showUndoSnackBar(record);
+    }
+  }
+
+  // "Log deleted" pop-up at the bottom with an Undo button, shown for 5
+  // seconds. Undo puts the record back in its date-sorted place.
+  void _showUndoSnackBar(MaintenanceRecord record) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..hideCurrentSnackBar() // replace any earlier pop-up
+      ..showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Log deleted',
+            style: TextStyle(
+              color: AppColors.background,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          duration: const Duration(seconds: 5),
+          // With an action, Flutter keeps a snackbar up until dismissed
+          // unless we turn persistence off.
+          persist: false,
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.accent, // the app's amber
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          action: SnackBarAction(
+            label: 'Undo',
+            textColor: AppColors.background,
+            onPressed: () {
+              if (!mounted) return;
+              setState(() {
+                _records.add(record);
+                _records.sort((a, b) => b.date.compareTo(a.date));
+              });
+            },
+          ),
+        ),
+      );
+  }
+
+  void _showComingSoon(String feature) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$feature is coming in a future update')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final records = _records;
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
+        title: const Text(
+          'Maintenance logs',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        actions: [
+          IconButton(
+            onPressed: _showAddOptions,
+            icon: const Icon(Icons.add, color: AppColors.accent),
+            tooltip: 'Add maintenance log',
+          ),
+        ],
+      ),
+      body: records.isEmpty
+          ? const Center(
+              child: Text(
+                'No service records yet',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
+              ),
+            )
+          // ListView.builder only builds the rows currently on screen, which
+          // keeps long logs smooth.
+          : ListView.separated(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+              itemCount: records.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              itemBuilder: (context, i) => _LogEntryCard(
+                record: records[i],
+                onTap: () => _openDetail(records[i]),
+              ),
+            ),
+    );
+  }
+}
+
+// One choice in the "add a log" sheet.
+class _AddOptionTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool comingSoon;
+  final VoidCallback onTap;
+
+  const _AddOptionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.comingSoon = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      onTap: onTap,
+      leading: Icon(icon, color: AppColors.accent, size: 26),
+      title: Text(
+        title,
+        style: const TextStyle(color: AppColors.textPrimary, fontSize: 16),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+      ),
+      trailing: comingSoon
+          ? const Text(
+              'Coming soon',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+            )
+          : const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+    );
+  }
+}
+
+// One row in the log: date/time, what was done, total spent, itemized lines.
+class _LogEntryCard extends StatelessWidget {
+  final MaintenanceRecord record;
+  final VoidCallback onTap;
+
+  const _LogEntryCard({required this.record, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: AppColors.border, width: 1),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                formatDateTime(record.date),
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      record.title,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    formatMoney(record.totalCents),
+                    style: const TextStyle(
+                      color: AppColors.accent,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                record.part,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Divider(height: 1, color: AppColors.border),
+              const SizedBox(height: 10),
+              for (final item in record.items)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item.quantity > 1
+                              ? '${item.description}  x${item.quantity}'
+                              : item.description,
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        formatMoney(item.totalCents),
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---- Maintenance detail page ----
+// Full details for one record: when/where/who, the full itemized report with
+// quantities and unit prices, the total, and notes.
+class MaintenanceDetailPage extends StatelessWidget {
+  final MaintenanceRecord record;
+
+  const MaintenanceDetailPage({super.key, required this.record});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
+        title: const Text(
+          'Service details',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+        children: [
+          Text(
+            record.title,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 26,
+              fontWeight: FontWeight.w600,
+              height: 1.15,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _Chip(record.kind == RecordKind.mod ? 'Mod' : 'Maintenance'),
+              // Verified vs. self-reported is kept visible on purpose: it's
+              // what will make a history trustworthy to a future buyer.
+              _Chip(
+                record.source == RecordSource.shopVerified
+                    ? 'Shop-verified'
+                    : 'User-entered',
+                highlight: record.source == RecordSource.shopVerified,
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _DetailSection(
+            children: [
+              _DetailRow('Date', formatDate(record.date)),
+              _DetailRow('Time', formatTime(record.date)),
+              _DetailRow('Mileage', formatMiles(record.mileage)),
+              _DetailRow('Part', record.part),
+              _DetailRow('Performed by', record.performedBy),
+            ],
+          ),
+          const SizedBox(height: 20),
+          const _SectionLabel('Itemized report'),
+          _DetailSection(
+            children: [
+              for (final item in record.items)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.description,
+                              style: const TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 15,
+                              ),
+                            ),
+                            if (item.quantity > 1)
+                              Text(
+                                '${item.quantity} x ${formatMoney(item.unitCents)}',
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        formatMoney(item.totalCents),
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const Divider(height: 24, color: AppColors.border),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Total',
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    formatMoney(record.totalCents),
+                    style: const TextStyle(
+                      color: AppColors.accent,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          if (record.notes.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            const _SectionLabel('Notes'),
+            _DetailSection(
+              children: [
+                Text(
+                  record.notes,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 15,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 32),
+          Center(
+            child: TextButton(
+              // The log page shows an Undo pop-up, so no confirmation box is needed.
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text(
+                'Delete Log',
+                style: TextStyle(
+                  color: Colors.redAccent,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String text;
+
+  const _SectionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8, left: 4),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: AppColors.textSecondary,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+}
+
+// Rounded card that groups related rows.
+class _DetailSection extends StatelessWidget {
+  final List<Widget> children;
+
+  const _DetailSection({required this.children});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.border, width: 1),
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
+      ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _DetailRow(this.label, this.value);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: AppColors.accent, size: 26),
-          const SizedBox(width: 16),
+          SizedBox(
+            width: 110,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+              ),
+            ),
+          ),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 15,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  final String label;
+  final bool highlight;
+
+  const _Chip(this.label, {this.highlight = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = highlight ? AppColors.accent : AppColors.textSecondary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.6), width: 1),
+      ),
+      child: Text(label, style: TextStyle(color: color, fontSize: 12)),
+    );
+  }
+}
+
+// ---- Add maintenance page (manual entry) ----
+// A simple form. When saved it returns a MaintenanceRecord to the log page.
+// The receipt-photo and AI-summary options will eventually fill in this same
+// form for the user to review and correct.
+
+const _partOptions = [
+  'Windows & Tint',
+  'Wheels & Brakes › Wheel',
+  'Wheels & Brakes › Brakes',
+  'Rear › Tailgate',
+  'Rear › Brake lights',
+  'Rear › Bed',
+  'Other',
+];
+
+// One editable line in the itemized report.
+class _ItemDraft {
+  final description = TextEditingController();
+  final price = TextEditingController(); // dollars, e.g. "89.99"
+  final quantity = TextEditingController(text: '1');
+
+  void dispose() {
+    description.dispose();
+    price.dispose();
+    quantity.dispose();
+  }
+}
+
+InputDecoration _fieldDecoration(String label, {String? hint}) {
+  const border = OutlineInputBorder(
+    borderRadius: BorderRadius.all(Radius.circular(10)),
+    borderSide: BorderSide(color: AppColors.border),
+  );
+  return InputDecoration(
+    labelText: label,
+    hintText: hint,
+    labelStyle: const TextStyle(color: AppColors.textSecondary),
+    hintStyle: const TextStyle(color: AppColors.textSecondary),
+    filled: true,
+    fillColor: AppColors.surface,
+    enabledBorder: border,
+    focusedBorder: border.copyWith(
+      borderSide: const BorderSide(color: AppColors.accent),
+    ),
+    border: border,
+  );
+}
+
+class AddMaintenancePage extends StatefulWidget {
+  const AddMaintenancePage({super.key});
+
+  @override
+  State<AddMaintenancePage> createState() => _AddMaintenancePageState();
+}
+
+class _AddMaintenancePageState extends State<AddMaintenancePage> {
+  final _formKey = GlobalKey<FormState>();
+  final _title = TextEditingController();
+  final _mileage = TextEditingController(text: '42180');
+  final _performedBy = TextEditingController(text: 'DIY');
+  final _notes = TextEditingController();
+  final List<_ItemDraft> _items = [_ItemDraft()];
+  // Removed rows are disposed with the page, not immediately, because their
+  // text fields are still on screen until the next frame.
+  final List<_ItemDraft> _removedItems = [];
+
+  String _part = _partOptions.first;
+  RecordKind _kind = RecordKind.maintenance;
+  DateTime _date = DateTime.now();
+  TimeOfDay _time = TimeOfDay.now();
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _mileage.dispose();
+    _performedBy.dispose();
+    _notes.dispose();
+    for (final item in [..._items, ..._removedItems]) {
+      item.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(1990),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) setState(() => _date = picked);
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(context: context, initialTime: _time);
+    if (picked != null) setState(() => _time = picked);
+  }
+
+  void _save() {
+    if (!_formKey.currentState!.validate()) return;
+
+    // Turn each filled-in row into a LineItem (price typed in dollars, stored
+    // as cents). Rows with no description are ignored.
+    final items = <LineItem>[];
+    for (final draft in _items) {
+      final description = draft.description.text.trim();
+      if (description.isEmpty) continue;
+      final dollars = double.tryParse(draft.price.text.trim()) ?? 0;
+      final qty = int.tryParse(draft.quantity.text.trim()) ?? 1;
+      items.add(LineItem(description, (dollars * 100).round(), quantity: qty));
+    }
+
+    Navigator.pop(
+      context,
+      MaintenanceRecord(
+        id: 'u${DateTime.now().millisecondsSinceEpoch}',
+        title: _title.text.trim(),
+        part: _part,
+        kind: _kind,
+        date: DateTime(
+          _date.year,
+          _date.month,
+          _date.day,
+          _time.hour,
+          _time.minute,
+        ),
+        mileage: int.tryParse(_mileage.text.trim()) ?? 0,
+        performedBy: _performedBy.text.trim().isEmpty
+            ? 'DIY'
+            : _performedBy.text.trim(),
+        items: items,
+        notes: _notes.text.trim(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const gap = SizedBox(height: 14);
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
+        title: const Text(
+          'New log',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: _save,
+            child: const Text(
+              'Save',
+              style: TextStyle(color: AppColors.accent, fontSize: 16),
+            ),
+          ),
+        ],
+      ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          children: [
+            TextFormField(
+              controller: _title,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _fieldDecoration(
+                'What was done',
+                hint: 'e.g. Oil change',
+              ),
+              textCapitalization: TextCapitalization.sentences,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Required' : null,
+            ),
+            gap,
+            SegmentedButton<RecordKind>(
+              segments: const [
+                ButtonSegment(
+                  value: RecordKind.maintenance,
+                  label: Text('Maintenance'),
+                ),
+                ButtonSegment(value: RecordKind.mod, label: Text('Mod')),
+              ],
+              selected: {_kind},
+              onSelectionChanged: (s) => setState(() => _kind = s.first),
+              style: SegmentedButton.styleFrom(
+                foregroundColor: AppColors.textSecondary,
+                selectedForegroundColor: AppColors.accent,
+                // Soft transparent amber highlight, like the nav bar's.
+                selectedBackgroundColor: AppColors.accent.withValues(
+                  alpha: 0.18,
+                ),
+                side: const BorderSide(color: AppColors.border),
+              ),
+            ),
+            gap,
+            DropdownButtonFormField<String>(
+              initialValue: _part,
+              dropdownColor: AppColors.surface,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _fieldDecoration('Part'),
+              items: [
+                for (final p in _partOptions)
+                  DropdownMenuItem(value: p, child: Text(p)),
+              ],
+              onChanged: (v) => setState(() => _part = v ?? _part),
+            ),
+            gap,
+            Row(
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
+                Expanded(
+                  child: _PickerField(
+                    label: 'Date',
+                    value: formatDate(_date),
+                    onTap: _pickDate,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _PickerField(
+                    label: 'Time',
+                    value: _time.format(context),
+                    onTap: _pickTime,
                   ),
                 ),
               ],
             ),
-          ),
-          const Icon(
-            Icons.chevron_right,
-            color: AppColors.textSecondary,
-            size: 22,
-          ),
-        ],
+            gap,
+            TextFormField(
+              controller: _mileage,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _fieldDecoration('Mileage'),
+              keyboardType: TextInputType.number,
+            ),
+            gap,
+            TextFormField(
+              controller: _performedBy,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _fieldDecoration('Performed by'),
+            ),
+            const SizedBox(height: 24),
+            const _SectionLabel('Itemized report'),
+            for (var i = 0; i < _items.length; i++) ...[
+              _ItemRow(
+                draft: _items[i],
+                onRemove: _items.length > 1
+                    ? () =>
+                          setState(() => _removedItems.add(_items.removeAt(i)))
+                    : null,
+              ),
+              const SizedBox(height: 10),
+            ],
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => setState(() => _items.add(_ItemDraft())),
+                icon: const Icon(Icons.add, color: AppColors.accent),
+                label: const Text(
+                  'Add item',
+                  style: TextStyle(color: AppColors.accent),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _notes,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _fieldDecoration('Notes (optional)'),
+              minLines: 3,
+              maxLines: 6,
+              textCapitalization: TextCapitalization.sentences,
+            ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+// Tappable field that opens a date or time picker.
+class _PickerField extends StatelessWidget {
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  const _PickerField({
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: InputDecorator(
+        decoration: _fieldDecoration(label),
+        child: Text(
+          value,
+          style: const TextStyle(color: AppColors.textPrimary, fontSize: 16),
+        ),
+      ),
+    );
+  }
+}
+
+// One editable line of the itemized report: description, quantity, price.
+class _ItemRow extends StatelessWidget {
+  final _ItemDraft draft;
+  final VoidCallback? onRemove; // null when it's the only row
+
+  const _ItemRow({required this.draft, this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 5,
+          child: TextFormField(
+            controller: draft.description,
+            style: const TextStyle(color: AppColors.textPrimary),
+            decoration: _fieldDecoration('Item'),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          flex: 2,
+          child: TextFormField(
+            controller: draft.quantity,
+            style: const TextStyle(color: AppColors.textPrimary),
+            decoration: _fieldDecoration('Qty'),
+            keyboardType: TextInputType.number,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          flex: 3,
+          child: TextFormField(
+            controller: draft.price,
+            style: const TextStyle(color: AppColors.textPrimary),
+            decoration: _fieldDecoration('Price', hint: '0.00'),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          ),
+        ),
+        if (onRemove != null)
+          IconButton(
+            onPressed: onRemove,
+            icon: const Icon(Icons.close, color: AppColors.textSecondary),
+            tooltip: 'Remove item',
+          ),
+      ],
     );
   }
 }

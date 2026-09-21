@@ -145,6 +145,25 @@ in `lib/main.dart`. Design direction:
   `Reminder`, `ServiceType` classes), navigation/routing, local storage
   layer, and any AI/receipt-parsing functionality.
 
+## Deferred work (intentionally NOT built yet — needs doing later)
+
+- **Camera / photo access for receipt pictures.** The "Receipt picture" option
+  in the maintenance log's + menu is a "Coming soon" placeholder. Needs a
+  camera/photo-picker package, iOS permission strings in `Info.plist`
+  (camera and photo library usage descriptions), and a decision on whether
+  receipt photos are stored locally.
+- **AI receipt parsing and AI summary of mechanic reports.** The "Mechanic
+  report (AI summary)" option is also a placeholder, and no AI model is wired
+  up. This is the v1 AI scope. Per the guardrails above, AI output must show
+  up as a suggestion the user can review and correct (it should fill in the
+  manual entry form), never as silent authority. Still to decide: which model
+  or API, and how to handle offline use.
+- **Local storage for maintenance records.** Logs added through the manual
+  form currently live only in memory and disappear on restart. The data model
+  (`lib/maintenance_record.dart`) exists; the storage layer does not.
+- **Real data behind the My Vehicle hotspots.** Their mods/maintenance lists
+  are placeholders and are not yet tied to the maintenance log records.
+
 ## How the developer prefers to work
 
 - Learning Flutter/Dart for the first time, coming from a Java background —
