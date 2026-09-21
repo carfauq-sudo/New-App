@@ -31,27 +31,35 @@ class MaintenanceGoApp extends StatelessWidget {
           primary: AppColors.accent,
         ),
       ),
-      home: const LandingPage(),
+      home: const MainShell(),
     );
   }
 }
 
-class LandingPage extends StatelessWidget {
-  const LandingPage({super.key});
+// ---- App shell ----
+// Owns the bottom nav bar and the currently selected tab, so the bar stays
+// visible on every page. Profile and Settings are placeholders for now.
+class MainShell extends StatefulWidget {
+  const MainShell({super.key});
+
+  @override
+  State<MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends State<MainShell> {
+  int _selectedIndex = 0;
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-
     return Scaffold(
       backgroundColor: AppColors.background,
-      // Placeholder bottom nav: highlights "Home" and does nothing on tap yet.
       bottomNavigationBar: NavigationBar(
         backgroundColor: AppColors.surface,
         indicatorColor: AppColors.accent.withValues(alpha: 0.18),
         surfaceTintColor: Colors.transparent,
-        selectedIndex: 0,
-        onDestinationSelected: (_) {},
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (index) =>
+            setState(() => _selectedIndex = index),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined, color: AppColors.textSecondary),
@@ -59,10 +67,11 @@ class LandingPage extends StatelessWidget {
             label: 'Home',
           ),
           NavigationDestination(
-            icon: Icon(Icons.directions_car_outlined,
-                color: AppColors.textSecondary),
-            selectedIcon:
-                Icon(Icons.directions_car, color: AppColors.accent),
+            icon: Icon(
+              Icons.directions_car_outlined,
+              color: AppColors.textSecondary,
+            ),
+            selectedIcon: Icon(Icons.directions_car, color: AppColors.accent),
             label: 'My Vehicle',
           ),
           NavigationDestination(
@@ -77,39 +86,93 @@ class LandingPage extends StatelessWidget {
           ),
         ],
       ),
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ---- Top 40%: My Vehicle ----
-            SizedBox(
-              height: screenHeight * 0.4,
-              child: const _MyVehicleSection(),
-            ),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: const [
+          LandingPage(),
+          MyVehiclePage(),
+          _PlaceholderPage(label: 'Profile'),
+          _PlaceholderPage(label: 'Settings'),
+        ],
+      ),
+    );
+  }
+}
 
-            // ---- Remaining space: navigation ----
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: const [
-                    _NavCard(
-                      title: 'Maintenance logs',
-                      subtitle: 'Every service, receipt, and repair',
-                      icon: Icons.receipt_long_outlined,
-                    ),
-                    SizedBox(height: 16),
-                    _NavCard(
-                      title: 'Maintenance calendar',
-                      subtitle: 'What\'s due, and when',
-                      icon: Icons.calendar_month_outlined,
-                    ),
-                  ],
-                ),
+class _PlaceholderPage extends StatelessWidget {
+  final String label;
+
+  const _PlaceholderPage({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        label,
+        style: const TextStyle(color: AppColors.textSecondary, fontSize: 17),
+      ),
+    );
+  }
+}
+
+class LandingPage extends StatelessWidget {
+  const LandingPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return SafeArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ---- Top 40%: My Vehicle ----
+          SizedBox(
+            height: screenHeight * 0.4,
+            child: const _MyVehicleSection(),
+          ),
+
+          // ---- Remaining space: navigation ----
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: const [
+                  _NavCard(
+                    title: 'Maintenance logs',
+                    subtitle: 'Every service, receipt, and repair',
+                    icon: Icons.receipt_long_outlined,
+                  ),
+                  SizedBox(height: 16),
+                  _NavCard(
+                    title: 'Maintenance calendar',
+                    subtitle: 'What\'s due, and when',
+                    icon: Icons.calendar_month_outlined,
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---- My Vehicle page ----
+// Shown by the "My Vehicle" tab. For now it only shows the vehicle image
+// centered on the page; details will be added later.
+class MyVehiclePage extends StatelessWidget {
+  const MyVehiclePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Image.asset('assets/images/tacoma.png', fit: BoxFit.contain),
         ),
       ),
     );
@@ -125,9 +188,7 @@ class _MyVehicleSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
       decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: AppColors.border, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: AppColors.border, width: 1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -166,10 +227,7 @@ class _MyVehicleSection extends StatelessWidget {
             children: [
               const Text(
                 '42,180 miles',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 15,
-                ),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
               ),
               const SizedBox(width: 10),
               Container(
@@ -183,10 +241,7 @@ class _MyVehicleSection extends StatelessWidget {
               const SizedBox(width: 10),
               const Text(
                 'Last service 3 months ago',
-                style: TextStyle(
-                  color: AppColors.accent,
-                  fontSize: 15,
-                ),
+                style: TextStyle(color: AppColors.accent, fontSize: 15),
               ),
             ],
           ),
