@@ -175,6 +175,10 @@ class VehicleHotspot {
   final String cameraTarget; // where the camera looks when zoomed in
   final String cameraOrbit; // camera angle/distance when zoomed in
   final List<String> mods;
+  // If set, this is a sub-part of another hotspot (e.g. "Brakes" under
+  // "Wheels & Brakes"). Sub-part dots only appear once you've zoomed into
+  // their parent.
+  final String? parent;
 
   const VehicleHotspot({
     required this.id,
@@ -184,6 +188,7 @@ class VehicleHotspot {
     required this.cameraTarget,
     required this.cameraOrbit,
     required this.mods,
+    this.parent,
   });
 }
 
@@ -191,7 +196,7 @@ class VehicleHotspot {
 const _vehicleHotspots = [
   VehicleHotspot(
     id: 'windshield',
-    name: 'Windshield',
+    name: 'Windows & Tint',
     // Point on the windshield surface, nudged slightly outward along its normal.
     position: '0.545m 0.994m 0m',
     normal: '0.55 0.83 0',
@@ -199,10 +204,86 @@ const _vehicleHotspots = [
     cameraOrbit: '90deg 62deg 1.6m',
     mods: ['35% tint'],
   ),
+  // Wheels & Brakes: the overview dot zooms in on the wheel, where two
+  // sub-part dots appear (Wheel and Brakes), each with its own mods.
+  VehicleHotspot(
+    id: 'wheels',
+    name: 'Wheels & Brakes',
+    // Center of the front driver-side wheel, just outside the rim.
+    position: '1.045m 0.245m 0.63m',
+    normal: '0 0 1',
+    cameraTarget: '1.045m 0.245m 0.6m',
+    cameraOrbit: '0deg 80deg 1.0m',
+    mods: [],
+  ),
+  VehicleHotspot(
+    id: 'wheel',
+    parent: 'wheels',
+    name: 'Wheel',
+    // On the tire sidewall, lower front of the wheel.
+    position: '1.19m 0.10m 0.63m',
+    normal: '0 0 1',
+    cameraTarget: '1.19m 0.10m 0.6m',
+    cameraOrbit: '0deg 80deg 0.9m',
+    mods: ['All-terrain tires', 'Tire rotation'],
+  ),
+  VehicleHotspot(
+    id: 'brakes',
+    parent: 'wheels',
+    name: 'Brakes',
+    // Brakes sit behind the wheel (not modeled), so this marks the hub area.
+    position: '1.045m 0.325m 0.59m',
+    normal: '0 0 1',
+    cameraTarget: '1.045m 0.3m 0.55m',
+    cameraOrbit: '0deg 80deg 0.9m',
+    mods: ['Brake pad replacement', 'Brake fluid flush'],
+  ),
+  // Rear: the overview dot sits in the middle of the tailgate (so it's only
+  // visible from behind) and zooms to a rear three-quarter view with three
+  // sub-parts.
+  VehicleHotspot(
+    id: 'rear',
+    name: 'Rear',
+    position: '-1.69m 0.62m 0m',
+    normal: '-1 0 0',
+    cameraTarget: '-1.2m 0.6m 0.1m',
+    cameraOrbit: '-40deg 60deg 2.2m',
+    mods: [],
+  ),
+  VehicleHotspot(
+    id: 'tailgate',
+    parent: 'rear',
+    name: 'Tailgate',
+    position: '-1.69m 0.62m 0m',
+    normal: '-1 0 0',
+    cameraTarget: '-1.66m 0.6m 0m',
+    cameraOrbit: '-90deg 75deg 1.3m',
+    mods: ['Tailgate assist damper', 'Tailgate lock'],
+  ),
+  VehicleHotspot(
+    id: 'brake_lights',
+    parent: 'rear',
+    name: 'Brake lights',
+    position: '-1.69m 0.65m 0.51m',
+    normal: '-1 0 0',
+    cameraTarget: '-1.65m 0.65m 0.5m',
+    cameraOrbit: '-70deg 75deg 1.0m',
+    mods: ['Smoked LED tail lights', 'Bulb replacement'],
+  ),
+  VehicleHotspot(
+    id: 'bed',
+    parent: 'rear',
+    name: 'Bed',
+    position: '-1.15m 0.56m 0m',
+    normal: '0 1 0',
+    cameraTarget: '-1.15m 0.55m 0m',
+    cameraOrbit: '-90deg 40deg 1.6m',
+    mods: ['Spray-in bed liner', 'Tonneau cover'],
+  ),
 ];
 
 // Camera used for the full-vehicle view (also what we zoom back out to).
-const _defaultOrbit = '35deg 75deg auto';
+const _defaultOrbit = '35deg 75deg 105%';
 
 class MyVehiclePage extends StatefulWidget {
   const MyVehiclePage({super.key});
@@ -220,17 +301,36 @@ class _MyVehiclePageState extends State<MyVehiclePage> {
   void _js(String code) =>
       _web?.runJavaScript("document.querySelector('model-viewer').$code");
 
-  void _deselect() {
-    setState(() => _selected = null);
-    _js("cameraTarget = 'auto auto auto'");
-    _js("cameraOrbit = '$_defaultOrbit'");
+  // Zooms in on a hotspot and shows its panel. Tapping a top-level dot also
+  // reveals that part's sub-dots; tapping a sub-dot stays in the same group.
+  void _focus(VehicleHotspot h) {
+    setState(() => _selected = _lastPanel = h);
+    _js("cameraTarget = '${h.cameraTarget}'");
+    _js("cameraOrbit = '${h.cameraOrbit}'");
+    _web?.runJavaScript("setContext('${h.parent ?? h.id}')");
+  }
+
+  // Closing a sub-part goes back to its parent; closing a top-level part goes
+  // back to the full-vehicle view.
+  void _back() {
+    final parent = _selected?.parent;
+    if (parent != null) {
+      _focus(_vehicleHotspots.firstWhere((h) => h.id == parent));
+    } else {
+      setState(() => _selected = null);
+      _js("cameraTarget = 'auto auto auto'");
+      _js("cameraOrbit = '$_defaultOrbit'");
+      _web?.runJavaScript("setContext('')");
+    }
   }
 
   // Builds the HTML for the dots. Each one is a <button> that model-viewer
   // pins to a spot on the model.
   String get _hotspotHtml => [
     for (final h in _vehicleHotspots)
-      '<button class="hs" slot="hotspot-${h.id}" data-id="${h.id}" '
+      '<button class="hs${h.parent == null ? '' : ' off'}" '
+          'slot="hotspot-${h.id}" data-id="${h.id}" '
+          'data-parent="${h.parent ?? ''}" '
           'data-position="${h.position}" data-normal="${h.normal}">'
           '<span class="dot"></span><span class="line"></span>'
           '<span class="lbl">${h.name}</span></button>',
@@ -240,55 +340,64 @@ class _MyVehiclePageState extends State<MyVehiclePage> {
   // model-viewer pins the CENTER of this element to the 3D point, so the line
   // and label are absolutely positioned and don't shift that center.
   static const _hotspotCss = '''
-    .hs { position: relative; width: 16px; height: 16px; display: block;
+    .hs { position: relative; width: 36px; height: 36px; display: block;
           padding: 0; background: none; border: none; cursor: pointer;
           transition: opacity 0.2s; }
     .hs.occluded { opacity: 0; pointer-events: none; }
-    .dot { position: absolute; left: 2px; top: 2px; width: 12px; height: 12px;
-           border-radius: 50%; background: #fff;
+    .hs.off { display: none; }
+    .dot { position: absolute; left: 12px; top: 12px; width: 12px; height: 12px;
+           box-sizing: border-box; border-radius: 50%; background: #fff;
            border: 2px solid rgba(0,0,0,0.6);
            box-shadow: 0 0 0 4px rgba(255,255,255,0.35); }
-    .line { position: absolute; left: 16px; top: 7px; width: 28px; height: 2px;
+    .line { position: absolute; left: 26px; top: 17px; width: 24px; height: 2px;
             background: #fff; box-shadow: 0 0 3px rgba(0,0,0,0.8); }
-    .lbl { position: absolute; left: 44px; top: 0; line-height: 16px;
-           white-space: nowrap; color: #fff;
-           font: 600 12px/16px -apple-system, sans-serif;
+    .lbl { position: absolute; left: 52px; top: 10px; white-space: nowrap;
+           color: #fff; font: 600 12px/16px -apple-system, sans-serif;
            text-shadow: 0 0 4px #000, 0 0 2px #000; }
   ''';
 
   String get _hotspotJs {
-    final spots = _vehicleHotspots
-        .map(
-          (h) => "'${h.id}': {t: '${h.cameraTarget}', o: '${h.cameraOrbit}'}",
-        )
-        .join(',');
     return '''
       const viewer = document.querySelector('model-viewer');
-      const spots = {$spots};
       document.querySelectorAll('.hs').forEach((btn) => {
         btn.addEventListener('click', () => {
-          const s = spots[btn.dataset.id];
-          viewer.cameraTarget = s.t;
-          viewer.cameraOrbit = s.o;
           HotspotChannel.postMessage(btn.dataset.id);
         });
       });
 
+      // Which group of dots is showing: '' = the top-level dots, otherwise the
+      // sub-dots of that parent (e.g. 'wheels'). Called from Dart.
+      function setContext(ctx) {
+        document.querySelectorAll('.hs').forEach((b) => {
+          b.classList.toggle('off', (b.dataset.parent || '') !== ctx);
+        });
+        schedule();
+      }
+      window.setContext = setContext;
+
       // Hide a dot when the truck itself is blocking it. We cast a ray from
-      // the camera through the dot; if it hits the truck somewhere other than
-      // the dot's own spot, the dot is on the far side.
+      // the camera through the dot; if it hits the truck clearly CLOSER to the
+      // camera than the dot, something is in the way. (Comparing distance
+      // along the ray, not position, avoids false hides at glancing angles.)
       const btns = [...document.querySelectorAll('.hs')];
       let queued = false;
+      const dist = (a, b) => Math.hypot(a[0]-b[0], a[1]-b[1], a[2]-b[2]);
       function updateVisibility() {
         queued = false;
+        const o = viewer.getCameraOrbit();
+        const t = viewer.getCameraTarget();
+        const cam = [
+          t.x + o.radius * Math.sin(o.phi) * Math.sin(o.theta),
+          t.y + o.radius * Math.cos(o.phi),
+          t.z + o.radius * Math.sin(o.phi) * Math.cos(o.theta),
+        ];
         btns.forEach((b) => {
           const r = b.getBoundingClientRect();
           const hit = viewer.positionAndNormalFromPoint(
               r.left + r.width / 2, r.top + r.height / 2);
           const p = b.dataset.position.split(' ').map(parseFloat);
-          const visible = hit &&
-              Math.hypot(hit.position.x - p[0], hit.position.y - p[1],
-                         hit.position.z - p[2]) < 0.12;
+          const hp = hit && [hit.position.x, hit.position.y, hit.position.z];
+          const visible = hit && dist(cam, hp) > dist(cam, p) - 0.08;
           b.classList.toggle('occluded', !visible);
         });
       }
@@ -323,9 +432,7 @@ class _MyVehiclePageState extends State<MyVehiclePage> {
         'HotspotChannel',
         onMessageReceived: (msg) {
           final match = _vehicleHotspots.where((h) => h.id == msg.message);
-          if (match.isNotEmpty) {
-            setState(() => _selected = _lastPanel = match.first);
-          }
+          if (match.isNotEmpty) _focus(match.first);
         },
       ),
     },
@@ -350,7 +457,14 @@ class _MyVehiclePageState extends State<MyVehiclePage> {
               offset: _selected == null ? const Offset(0, 1.2) : Offset.zero,
               child: _lastPanel == null
                   ? const SizedBox.shrink()
-                  : _ModsPanel(spot: _lastPanel!, onClose: _deselect),
+                  : _ModsPanel(
+                      spot: _lastPanel!,
+                      parts: _vehicleHotspots
+                          .where((h) => h.parent == _lastPanel!.id)
+                          .toList(),
+                      onSelectPart: _focus,
+                      onClose: _back,
+                    ),
             ),
           ),
         ],
@@ -362,9 +476,16 @@ class _MyVehiclePageState extends State<MyVehiclePage> {
 // Card shown under the zoomed image: the part name and its mods/maintenance.
 class _ModsPanel extends StatelessWidget {
   final VehicleHotspot spot;
+  final List<VehicleHotspot> parts; // sub-parts, if this spot has any
+  final ValueChanged<VehicleHotspot> onSelectPart;
   final VoidCallback onClose;
 
-  const _ModsPanel({required this.spot, required this.onClose});
+  const _ModsPanel({
+    required this.spot,
+    required this.parts,
+    required this.onSelectPart,
+    required this.onClose,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -396,16 +517,52 @@ class _ModsPanel extends StatelessWidget {
               IconButton(
                 onPressed: onClose,
                 icon: const Icon(Icons.close, color: AppColors.textSecondary),
-                tooltip: 'Back to full view',
+                tooltip: spot.parent == null ? 'Back to full view' : 'Back',
               ),
             ],
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Mods & maintenance',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          Text(
+            parts.isEmpty ? 'Mods & maintenance' : 'Tap a part to see its mods',
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+            ),
           ),
           const SizedBox(height: 10),
+          // A spot with sub-parts lists them as tappable rows (same as
+          // tapping their dots on the truck).
+          for (final part in parts)
+            InkWell(
+              onTap: () => onSelectPart(part),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.radio_button_checked,
+                      color: AppColors.accent,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        part.name,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: AppColors.textSecondary,
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           for (final mod in spot.mods)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
