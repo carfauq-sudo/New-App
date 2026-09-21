@@ -1,0 +1,1561 @@
+{
+ "schema_version": 1,
+ "data_version": "2026-09-21",
+ "notes": "Read-only reference data extracted from the manufacturer's owner's manual. User records (logs, schedule, stats) must live elsewhere and refer to items here by id only. Every fact carries `page` = the PRINTED page number in the manual (PDF page index is printed page + 2).",
+ "source": {
+  "title": "Toyota 2026 Tacoma Owner's Manual USA and Canada Only",
+  "document_code": "OM04051U",
+  "publisher": "Toyota Motor Corporation",
+  "coverage": "Gasoline T24A-FTS engine models. Hybrid models are not covered by this manual.",
+  "verified": "Extracted from the PDF text and page-referenced; a human spot-check of each entry is still recommended.",
+  "trust_tier": "official",
+  "trust_note": "Manufacturer's owner's manual for this exact model year. Most reliable data in the file."
+ },
+ "vehicle": {
+  "year": 2026,
+  "make": "Toyota",
+  "model": "Tacoma",
+  "market": "US/Canada",
+  "engine_code": "T24A-FTS",
+  "engine": "2.4 L turbocharged 4-cylinder gasoline"
+ },
+ "pending_sources": [
+  {
+   "id": "scheduled_maintenance_guide",
+   "name": "Scheduled Maintenance Guide / Owner's Manual Supplement / Owner's Warranty Information Booklet",
+   "needed_for": "Service intervals (miles/months) for oil, tire rotation, filters, fluids, inspections. The owner's manual points to this document instead of listing intervals (P.518, P.520, P.554).",
+   "status": "not_yet_loaded",
+   "notes": "Still the authoritative source. The dealer schedule in schedule_sources is a stand-in until this is loaded and compared."
+  },
+  {
+   "id": "vin_lookup",
+   "name": "Exact VIN-based lookup",
+   "needed_for": "Replacing provisional intervals and choosing the right tire type, engine and drivetrain for this exact truck (VIN decode for configuration, plus Toyota's official schedule or a licensed schedule provider).",
+   "status": "planned"
+  }
+ ],
+ "specs": [
+  {
+   "id": "engine_type",
+   "category": "engine",
+   "label": "Engine",
+   "value": "T24A-FTS, 4-cylinder in line, 4-cycle, gasoline, turbocharged",
+   "page": 621
+  },
+  {
+   "id": "engine_displacement",
+   "category": "engine",
+   "label": "Displacement",
+   "value": "146.0 cu.in. (2393 cm3)",
+   "page": 621
+  },
+  {
+   "id": "engine_bore_stroke",
+   "category": "engine",
+   "label": "Bore and stroke",
+   "value": "3.44 x 3.91 in. (87.5 x 99.5 mm)",
+   "page": 621
+  },
+  {
+   "id": "engine_valve_clearance",
+   "category": "engine",
+   "label": "Valve clearance",
+   "value": "Automatic adjustment",
+   "page": 621
+  },
+  {
+   "id": "engine_drive_belt",
+   "category": "engine",
+   "label": "Drive belt tension",
+   "value": "Automatic adjustment",
+   "page": 621
+  },
+  {
+   "id": "fuel_type",
+   "category": "fuel",
+   "label": "Fuel type",
+   "value": "Unleaded gasoline only",
+   "page": 621
+  },
+  {
+   "id": "fuel_octane",
+   "category": "fuel",
+   "label": "Minimum octane",
+   "value": "87 (Research Octane Number 91) or higher",
+   "page": 621,
+   "notes": "Lower octane can cause knocking and engine damage (P.629)."
+  },
+  {
+   "id": "fuel_ethanol_max",
+   "category": "fuel",
+   "label": "Maximum ethanol",
+   "value": "15%",
+   "page": 629,
+   "notes": "Do not use E30, E50, E85 or any fuel that could exceed 15% ethanol. Toyota does not recommend methanol or MMT additives."
+  },
+  {
+   "id": "fuel_tank_capacity",
+   "category": "fuel",
+   "label": "Fuel tank capacity",
+   "value": "18.2 gal. (69.0 L)",
+   "page": 621,
+   "notes": "Reference quantity."
+  },
+  {
+   "id": "fuel_detergent",
+   "category": "fuel",
+   "label": "Fuel quality",
+   "value": "Top Tier Detergent Gasoline strongly recommended",
+   "page": 629
+  },
+  {
+   "id": "oil_grade",
+   "category": "oil",
+   "label": "Engine oil grade",
+   "value": "ILSAC GF-6A multigrade engine oil",
+   "page": 621
+  },
+  {
+   "id": "oil_viscosity",
+   "category": "oil",
+   "label": "Engine oil viscosity",
+   "value": "SAE 0W-20",
+   "page": 621,
+   "notes": "If 0W-20 is unavailable, 5W-20 may be used but must be replaced with 0W-20 at the next oil change (P.622)."
+  },
+  {
+   "id": "oil_brand",
+   "category": "oil",
+   "label": "Recommended oil",
+   "value": "Toyota Genuine Motor Oil or equivalent",
+   "page": 621
+  },
+  {
+   "id": "oil_capacity_with_filter",
+   "category": "oil",
+   "label": "Oil capacity (drain and refill, with filter)",
+   "value": "5.9 qt. (5.6 L)",
+   "page": 621,
+   "notes": "Reference quantity. Never exceed the upper limit mark on the dipstick."
+  },
+  {
+   "id": "oil_capacity_without_filter",
+   "category": "oil",
+   "label": "Oil capacity (drain and refill, without filter)",
+   "value": "5.6 qt. (5.3 L)",
+   "page": 621,
+   "notes": "Reference quantity."
+  },
+  {
+   "id": "oil_low_to_full",
+   "category": "oil",
+   "label": "Dipstick range (low mark to upper limit)",
+   "value": "1.5 qt. (1.4 L)",
+   "page": 530
+  },
+  {
+   "id": "oil_check_wait",
+   "category": "oil",
+   "label": "Wait after shutdown before checking oil",
+   "value": "About 5 minutes (P.529); about 8 minutes (P.621)",
+   "page": 529,
+   "notes": "The manual states both values in different places. Confirm with the dealer before relying on one."
+  },
+  {
+   "id": "coolant_type",
+   "category": "coolant",
+   "label": "Coolant type",
+   "value": "Toyota Super Long Life Coolant, or a similar ethylene glycol based non-silicate, non-amine, non-nitrite, non-borate coolant with long-life hybrid organic acid technology",
+   "page": 622,
+   "notes": "Do not use plain water alone."
+  },
+  {
+   "id": "coolant_mix_us",
+   "category": "coolant",
+   "label": "Coolant mixture (U.S.A.)",
+   "value": "50% coolant / 50% deionized water (min. temperature -31F / -35C)",
+   "page": 532
+  },
+  {
+   "id": "coolant_mix_canada",
+   "category": "coolant",
+   "label": "Coolant mixture (Canada)",
+   "value": "55% coolant / 45% deionized water (min. temperature -44F / -42C)",
+   "page": 532
+  },
+  {
+   "id": "coolant_capacity_a",
+   "category": "coolant",
+   "label": "Cooling system capacity",
+   "value": "12.6 qt. (11.9 L)",
+   "page": 622,
+   "notes": "Reference quantity. Contact a Toyota dealer if replacement is needed.",
+   "applies_to": [
+    "TZNA41L-PRZSTA",
+    "TZNA41L-CRZSTA",
+    "TZNA46L-PRZSTA",
+    "TZNA46L-CRZSTA"
+   ]
+  },
+  {
+   "id": "coolant_capacity_b",
+   "category": "coolant",
+   "label": "Cooling system capacity",
+   "value": "12.8 qt. (12.1 L)",
+   "page": 622,
+   "notes": "Reference quantity. All models except those listed for 12.6 qt.",
+   "applies_to": [
+    "all_other_models"
+   ]
+  },
+  {
+   "id": "spark_plug",
+   "category": "ignition",
+   "label": "Spark plug",
+   "value": "NGK DILZKAR8E7H (iridium tipped)",
+   "page": 623,
+   "notes": "Do not adjust the gap."
+  },
+  {
+   "id": "spark_plug_gap",
+   "category": "ignition",
+   "label": "Spark plug gap",
+   "value": "0.027 in. (0.7 mm)",
+   "page": 623
+  },
+  {
+   "id": "battery_open_voltage",
+   "category": "electrical",
+   "label": "Battery open voltage at 68F (20C)",
+   "value": "12.3 V or higher",
+   "page": 623,
+   "notes": "Engine switch off, high beams on for 30 seconds."
+  },
+  {
+   "id": "battery_slow_charge",
+   "category": "electrical",
+   "label": "Battery slow charge rate",
+   "value": "5 A max.",
+   "page": 623
+  },
+  {
+   "id": "atf_type",
+   "category": "transmission",
+   "label": "Automatic transmission fluid",
+   "value": "Toyota Genuine ATF WS",
+   "page": 623,
+   "notes": "Other fluids may cause noise, vibration or transmission damage."
+  },
+  {
+   "id": "atf_capacity",
+   "category": "transmission",
+   "label": "Automatic transmission fluid capacity",
+   "value": "12.2 qt. (11.5 L)",
+   "page": 623,
+   "notes": "Reference quantity."
+  },
+  {
+   "id": "mt_oil_type",
+   "category": "transmission",
+   "label": "Manual transmission gear oil",
+   "value": "Toyota Genuine Manual Transmission Gear Oil GL-3 (GL-4) or equivalent, SAE 75W-90",
+   "page": 624,
+   "notes": "Manual transmission models only."
+  },
+  {
+   "id": "mt_oil_capacity",
+   "category": "transmission",
+   "label": "Manual transmission gear oil capacity",
+   "value": "2.6 qt. (2.5 L)",
+   "page": 624,
+   "notes": "Reference quantity. Manual transmission models only."
+  },
+  {
+   "id": "clutch_free_play",
+   "category": "clutch",
+   "label": "Clutch free play",
+   "value": "0.2 - 0.6 in. (5 - 15 mm)",
+   "page": 624,
+   "notes": "Manual transmission models only."
+  },
+  {
+   "id": "clutch_fluid",
+   "category": "clutch",
+   "label": "Clutch fluid",
+   "value": "FMVSS No. 116 DOT 3 or SAE J1703",
+   "page": 624,
+   "notes": "Manual transmission models only."
+  },
+  {
+   "id": "transfer_oil_type",
+   "category": "drivetrain",
+   "label": "Transfer case oil (4WD)",
+   "value": "Toyota Genuine Transfer Gear Oil LF or equivalent, SAE 75W",
+   "page": 624
+  },
+  {
+   "id": "transfer_oil_capacity",
+   "category": "drivetrain",
+   "label": "Transfer case oil capacity (4WD)",
+   "value": "1.2 qt. (1.1 L)",
+   "page": 624
+  },
+  {
+   "id": "diff_oil_type",
+   "category": "drivetrain",
+   "label": "Differential oil",
+   "value": "Toyota Genuine Differential Gear Oil LT 75W-85 GL-5 or equivalent",
+   "page": 625
+  },
+  {
+   "id": "diff_front_capacity",
+   "category": "drivetrain",
+   "label": "Front differential oil capacity (4WD)",
+   "value": "1.4 qt. (1.3 L)",
+   "page": 625
+  },
+  {
+   "id": "diff_rear_capacity_std",
+   "category": "drivetrain",
+   "label": "Rear differential oil capacity",
+   "value": "4.8 qt. (4.5 L)",
+   "page": 625,
+   "notes": "Except manual transmission with TRD SPORT or TRD OFFROAD package."
+  },
+  {
+   "id": "diff_rear_capacity_mt_trd",
+   "category": "drivetrain",
+   "label": "Rear differential oil capacity (manual transmission with TRD SPORT or TRD OFFROAD)",
+   "value": "5.0 qt. (4.8 L)",
+   "page": 625
+  },
+  {
+   "id": "brake_fluid_type",
+   "category": "brakes",
+   "label": "Brake fluid",
+   "value": "FMVSS No.116 DOT 3 or SAE J1703, or DOT 4 or SAE J1704",
+   "page": 625,
+   "notes": "Use only newly opened brake fluid; it absorbs moisture from the air (P.533)."
+  },
+  {
+   "id": "brake_pad_wear_limit",
+   "category": "brakes",
+   "label": "Brake pad wear limit",
+   "value": "0.04 in. (1.0 mm)",
+   "page": 625
+  },
+  {
+   "id": "brake_pedal_clearance_17",
+   "category": "brakes",
+   "label": "Brake pedal clearance (17-inch front brake)",
+   "value": "4.8 in. (123 mm) min.",
+   "page": 625,
+   "notes": "Measured with 110 lbf applied, engine running."
+  },
+  {
+   "id": "brake_pedal_clearance_16",
+   "category": "brakes",
+   "label": "Brake pedal clearance (16-inch front brake)",
+   "value": "5.0 in. (126 mm) min.",
+   "page": 625
+  },
+  {
+   "id": "brake_pedal_free_play",
+   "category": "brakes",
+   "label": "Brake pedal free play",
+   "value": "0.04 - 0.24 in. (1 - 6 mm)",
+   "page": 625
+  },
+  {
+   "id": "steering_free_play",
+   "category": "steering",
+   "label": "Steering free play",
+   "value": "Less than 1.2 in. (30 mm)",
+   "page": 626
+  },
+  {
+   "id": "tire_replace_treadwear",
+   "category": "tires",
+   "label": "Replace tires when",
+   "value": "Treadwear indicators (TWI marks) are showing",
+   "page": 537
+  },
+  {
+   "id": "tire_max_age",
+   "category": "tires",
+   "label": "Tire age check",
+   "value": "Any tire over 6 years old must be checked by a qualified technician, even if barely used",
+   "page": 537
+  },
+  {
+   "id": "tire_snow_min_tread",
+   "category": "tires",
+   "label": "Snow tire effectiveness limit",
+   "value": "Tread worn below 0.16 in. (4 mm)",
+   "page": 538
+  },
+  {
+   "id": "tire_mixing",
+   "category": "tires",
+   "label": "Do not mix",
+   "value": "Different makes, models, tread patterns, constructions, or summer/all-season/snow types",
+   "page": 538,
+   "notes": "Use only tire sizes recommended by Toyota."
+  },
+  {
+   "id": "key_battery",
+   "category": "key",
+   "label": "Electronic key battery",
+   "value": "CR2450 lithium, '+' terminal facing up",
+   "page": 555,
+   "notes": "Toyota recommends the dealer replace it. Card key battery: dealer only."
+  },
+  {
+   "id": "bulb_front_turn",
+   "category": "lighting",
+   "label": "Front turn signal/parking light bulb (bulb type)",
+   "value": "7444NA, 28/8 W, wedge base, amber",
+   "page": 628,
+   "notes": "The only bulb the owner is meant to replace."
+  },
+  {
+   "id": "lights_dealer_only",
+   "category": "lighting",
+   "label": "Lights replaced by the dealer",
+   "value": "Headlights, daytime running lights, front turn/parking (LED type), fog lights, and all rear/side lights (tail, stop, back-up, rear turn, high-mounted stop, side marker, license plate) - LED units",
+   "page": 560,
+   "notes": "If any LED in these lights burns out, the whole light is replaced by the dealer (P.561)."
+  },
+  {
+   "id": "offroad_inspection",
+   "category": "conditions",
+   "label": "After off-road driving",
+   "value": "Perform a maintenance inspection after each day of off-road driving through rough terrain, sand, mud, or water",
+   "page": 441
+  }
+ ],
+ "tire_configs": [
+  {
+   "id": "tire_17a",
+   "label": "17-inch (type A)",
+   "tire_size": "245/70R17 110T",
+   "spare_tire_size": "T175/90D18 111M",
+   "pressure_psi": 35,
+   "spare_pressure_psi": 60,
+   "wheel_size": "17 x 7J",
+   "spare_wheel_size": "18 x 4.5T",
+   "lug_torque_ftlbf": {
+    "steel": null,
+    "aluminum": 97
+   },
+   "page": 626
+  },
+  {
+   "id": "tire_17b",
+   "label": "17-inch (type B)",
+   "tire_size": "245/70R17 110T",
+   "spare_tire_size": "245/70R17 110T",
+   "pressure_psi": 35,
+   "spare_pressure_psi": 35,
+   "wheel_size": "17 x 7J",
+   "spare_wheel_size": "17 x 7J",
+   "lug_torque_ftlbf": {
+    "steel": 154,
+    "aluminum": 97
+   },
+   "page": 626
+  },
+  {
+   "id": "tire_17c",
+   "label": "17-inch (type C)",
+   "tire_size": "265/70R17 115S",
+   "spare_tire_size": "245/75R17 112S",
+   "pressure_psi": 30,
+   "spare_pressure_psi": 32,
+   "wheel_size": "17 x 7 1/2J",
+   "spare_wheel_size": "17 x 7J",
+   "lug_torque_ftlbf": {
+    "steel": 154,
+    "aluminum": 97
+   },
+   "page": 626
+  },
+  {
+   "id": "tire_17d",
+   "label": "17-inch (type D)",
+   "tire_size": "265/70R17 115S",
+   "spare_tire_size": "265/70R17 115S",
+   "pressure_psi": 30,
+   "spare_pressure_psi": null,
+   "wheel_size": "17 x 7 1/2J",
+   "spare_wheel_size": "17 x 7J",
+   "lug_torque_ftlbf": {
+    "steel": 154,
+    "aluminum": 97
+   },
+   "page": 627
+  },
+  {
+   "id": "tire_18a",
+   "label": "18-inch (type A)",
+   "tire_size": "265/65R18 114T",
+   "spare_tire_size": "245/75R17 112S",
+   "pressure_psi": 32,
+   "spare_pressure_psi": null,
+   "wheel_size": "18 x 7 1/2J",
+   "spare_wheel_size": "17 x 7J",
+   "lug_torque_ftlbf": {
+    "steel": 154,
+    "aluminum": 97
+   },
+   "page": 627
+  },
+  {
+   "id": "tire_18b",
+   "label": "18-inch (type B)",
+   "tire_size": "265/65R18 114T",
+   "spare_tire_size": "245/75R17 112S",
+   "pressure_psi": 32,
+   "spare_pressure_psi": null,
+   "wheel_size": "18 x 8J",
+   "spare_wheel_size": "17 x 7J",
+   "lug_torque_ftlbf": {
+    "steel": 154,
+    "aluminum": 97
+   },
+   "page": 627
+  },
+  {
+   "id": "tire_18c",
+   "label": "18-inch (type C)",
+   "tire_size": "265/65R18 114T",
+   "spare_tire_size": "265/70R17 115S",
+   "pressure_psi": 32,
+   "spare_pressure_psi": 30,
+   "wheel_size": "18 x 7 1/2J",
+   "spare_wheel_size": "17 x 7J",
+   "lug_torque_ftlbf": {
+    "steel": 154,
+    "aluminum": 97
+   },
+   "page": 628
+  }
+ ],
+ "tire_configs_note": "The manual does not say which type goes with which trim (e.g. SR5). The user's vehicle profile must store the type, taken from the tire label on the driver's door jamb or the Certification Label. Do not guess. Type A lists only one lug torque (97 ft-lbf); null means the manual gives no value. Null spare pressure means the manual gives none.",
+ "procedures": [
+  {
+   "id": "check_engine_oil",
+   "title": "Check the engine oil level",
+   "steps": [
+    "Park on level ground. Warm up the engine, turn it off, and wait for the oil to drain back (about 5 minutes per P.529; P.621 says about 8).",
+    "Holding a rag under the end, pull the dipstick out and wipe it clean.",
+    "Reinsert the dipstick fully.",
+    "Pull it out again and check the oil level is above the low level mark.",
+    "Wipe the dipstick and reinsert it fully."
+   ],
+   "page": 529,
+   "warnings": [
+    "Check the level regularly to prevent serious engine damage.",
+    "If the level is above the upper limit mark, contact a Toyota dealer."
+   ],
+   "notes": "Oil use rises in a new engine, with heavy loads or towing, frequent acceleration/deceleration, and long idling. Level can rise from fuel/moisture if the engine is often not fully warmed up (short trips, low speeds, cold weather)."
+  },
+  {
+   "id": "add_engine_oil",
+   "title": "Add engine oil",
+   "steps": [
+    "Remove the oil filler cap by turning it counterclockwise.",
+    "Add engine oil of the same type slowly, checking the dipstick.",
+    "Keep the level between the low level mark and the refill upper limit mark (1.5 qt / 1.4 L apart).",
+    "Install the oil filler cap by turning it clockwise."
+   ],
+   "page": 530,
+   "warnings": [
+    "Avoid overfilling, which can damage the engine.",
+    "Dispose of used oil and filters properly; do not put them in household trash, sewers, or on the ground."
+   ]
+  },
+  {
+   "id": "reset_oil_maintenance",
+   "title": "Reset the oil maintenance data after an oil change",
+   "steps": [
+    "Use the meter control switch to open the multi-information display settings.",
+    "Select 'Vehicle Settings' (press and hold the enter button).",
+    "Select 'Oil Maintenance', then choose 'Yes'.",
+    "Wait for the confirmation message on the multi-information display."
+   ],
+   "page": 530,
+   "notes": "The truck tracks oil maintenance itself. The button sequence differs slightly between the 7-inch and 12.3-inch displays (P.530-531)."
+  },
+  {
+   "id": "reset_scheduled_maintenance",
+   "title": "Reset the 'maintenance required' message",
+   "steps": [
+    "Use the meter control switch to open the multi-information display settings.",
+    "Select 'Vehicle Settings' (press and hold the enter button).",
+    "Select 'Scheduled Maintenance', then choose 'Yes'."
+   ],
+   "page": 519,
+   "notes": "Do this after the required maintenance is performed according to the schedule. Button sequence differs between the 7-inch and 12.3-inch displays."
+  },
+  {
+   "id": "check_coolant",
+   "title": "Check the engine coolant",
+   "steps": [
+    "With the engine cold, check that the level in the reservoir is between the 'F' and 'L' lines.",
+    "If it is at or below the 'L' line, add coolant up to the 'F' line.",
+    "If the level drops again soon after topping up, check the radiator, hoses, reservoir cap, drain cock and water pump for leaks, or have the dealer test it."
+   ],
+   "page": 531,
+   "warnings": [
+    "Never remove the coolant reservoir cap when the engine is hot; the system is pressurized and can spray hot coolant."
+   ]
+  },
+  {
+   "id": "check_radiator",
+   "title": "Check the radiator, condenser, and intercooler",
+   "steps": [
+    "Look for foreign objects on the radiator, condenser and intercooler and clear them away.",
+    "If any is extremely dirty or you are unsure of its condition, have the dealer inspect it."
+   ],
+   "page": 532,
+   "warnings": [
+    "Do not touch the radiator or intercooler when hot."
+   ]
+  },
+  {
+   "id": "check_brake_fluid",
+   "title": "Check and add brake fluid",
+   "steps": [
+    "Check that the fluid level is between the 'MAX' and 'MIN' lines on the reservoir.",
+    "If adding, use only the specified brake fluid type (see the brake fluid spec) from a newly opened container, with a clean funnel."
+   ],
+   "page": 533,
+   "warnings": [
+    "Brake fluid absorbs moisture, which can cause a dangerous loss of braking efficiency.",
+    "Brake fluid can harm skin, eyes and paint; flush skin/eyes with clean water immediately.",
+    "A slow small drop is normal as pads wear; frequent refilling can mean a serious problem."
+   ]
+  },
+  {
+   "id": "check_battery",
+   "title": "Check the battery",
+   "steps": [
+    "Check that the terminals are not corroded and there are no loose connections, cracks, or loose clamps.",
+    "Check the terminals, hold-down clamp and bracket."
+   ],
+   "page": 534,
+   "warnings": [
+    "When recharging with the battery installed, disconnect the ground cable and keep the charger switched off while connecting/disconnecting.",
+    "Recharging produces flammable, explosive hydrogen gas."
+   ],
+   "notes": "After recharging or reconnecting the battery the engine may not start. Follow the initialization steps on P.534 (automatic: shift to P; open and close a door; restart)."
+  },
+  {
+   "id": "check_tires",
+   "title": "Check the tires",
+   "steps": [
+    "Check whether the treadwear indicators (TWI marks) are showing.",
+    "Check for uneven wear, such as excessive wear on one side of the tread.",
+    "Check the spare tire's condition and pressure if it has not been rotated in.",
+    "Check inflation pressure when the tires are cold against the value for your tire type."
+   ],
+   "page": 536
+  },
+  {
+   "id": "rotate_tires",
+   "title": "Rotate the tires",
+   "steps": [
+    "Rotate the tires in the order shown in the manual's diagram (P.538), on the maintenance schedule."
+   ],
+   "page": 538,
+   "notes": "The rotation pattern is a diagram in the manual, not text. The interval comes from the Scheduled Maintenance Guide."
+  },
+  {
+   "id": "replace_ac_filter",
+   "title": "Replace the air conditioning (cabin) filter",
+   "steps": [
+    "Remove the filter cover (release the claws), then the filter case.",
+    "Take the old filter out of the case and put in a new one.",
+    "Make sure the 'UP' marks on the filter and the case point up."
+   ],
+   "page": 553,
+   "notes": "Inspect and replace per the maintenance schedule; replace early in dusty areas or heavy traffic. Some early steps were not captured in the text extraction (P.553)."
+  },
+  {
+   "id": "replace_key_battery",
+   "title": "Replace the electronic key battery",
+   "steps": [
+    "Take out the mechanical key.",
+    "Remove the cover (tape the screwdriver tip to avoid damaging the key).",
+    "Remove the depleted battery and insert a new CR2450 with the '+' terminal facing up."
+   ],
+   "page": 555,
+   "warnings": [
+    "The key can be damaged if this is done incorrectly; Toyota recommends the dealer do it."
+   ]
+  },
+  {
+   "id": "replace_fuse",
+   "title": "Check and replace fuses",
+   "steps": [
+    "Turn the engine switch off and open the fuse box cover.",
+    "Remove the suspect fuse (only type A can use the pullout tool).",
+    "Check whether it is blown.",
+    "Replace a blown type A or B fuse with one of the same amperage (printed on the fuse box lid). For type C and D, contact the dealer."
+   ],
+   "page": 557,
+   "warnings": [
+    "Never use a higher amperage fuse, a wire, or any other object in place of a fuse.",
+    "If a replaced fuse blows again, have the dealer inspect the vehicle."
+   ],
+   "notes": "Fuse boxes: engine compartment (types A and B), passenger-side instrument panel, and under the right-hand rear seat on vehicles with rear seats."
+  },
+  {
+   "id": "replace_front_turn_bulb",
+   "title": "Replace the front turn signal/parking light bulb (bulb type)",
+   "steps": [
+    "Remove the 4 push clips and the air cleaner inlet (passenger's side only).",
+    "Turn the bulb base counterclockwise and remove the bulb.",
+    "Install the new bulb and turn the base clockwise.",
+    "Reinstall the air cleaner inlet and push clips (passenger's side only)."
+   ],
+   "page": 561,
+   "warnings": [
+    "Do not replace a bulb right after the lights have been on; bulbs get very hot.",
+    "Do not touch the bulb glass with bare hands.",
+    "Make sure the bulb is fully seated and locked."
+   ]
+  }
+ ],
+ "general_checks": [
+  {
+   "id": "gc_battery",
+   "area": "engine_compartment",
+   "item": "Battery",
+   "check_points": [
+    "Check the connections."
+   ],
+   "page": 520
+  },
+  {
+   "id": "gc_brake_fluid",
+   "area": "engine_compartment",
+   "item": "Brake fluid",
+   "check_points": [
+    "Is the brake fluid at the correct level?"
+   ],
+   "page": 520
+  },
+  {
+   "id": "gc_coolant",
+   "area": "engine_compartment",
+   "item": "Engine coolant",
+   "check_points": [
+    "Is the engine coolant at the correct level?"
+   ],
+   "page": 520
+  },
+  {
+   "id": "gc_engine_oil",
+   "area": "engine_compartment",
+   "item": "Engine oil",
+   "check_points": [
+    "Is the engine oil at the correct level?"
+   ],
+   "page": 520
+  },
+  {
+   "id": "gc_exhaust",
+   "area": "engine_compartment",
+   "item": "Exhaust system",
+   "check_points": [
+    "There should not be any fumes or strange sounds."
+   ],
+   "page": 520
+  },
+  {
+   "id": "gc_radiator",
+   "area": "engine_compartment",
+   "item": "Radiator/condenser/intercooler",
+   "check_points": [
+    "Free from foreign objects."
+   ],
+   "page": 520
+  },
+  {
+   "id": "gc_washer",
+   "area": "engine_compartment",
+   "item": "Washer fluid",
+   "check_points": [
+    "Is there sufficient washer fluid?"
+   ],
+   "page": 520
+  },
+  {
+   "id": "gc_accelerator",
+   "area": "interior",
+   "item": "Accelerator pedal",
+   "check_points": [
+    "Moves smoothly, without uneven pedal effort or catching."
+   ],
+   "page": 520
+  },
+  {
+   "id": "gc_park",
+   "area": "interior",
+   "item": "Automatic transmission 'Park' mechanism",
+   "check_points": [
+    "When parked on a slope in P, is the vehicle securely stopped?"
+   ],
+   "page": 520
+  },
+  {
+   "id": "gc_brake_pedal",
+   "area": "interior",
+   "item": "Brake pedal",
+   "check_points": [
+    "Moves smoothly.",
+    "Appropriate clearance from the floor.",
+    "Correct amount of free play."
+   ],
+   "page": 520
+  },
+  {
+   "id": "gc_brakes",
+   "area": "interior",
+   "item": "Brakes",
+   "check_points": [
+    "Does not pull to one side when braking.",
+    "Brakes work effectively.",
+    "Pedal does not feel spongy.",
+    "Pedal does not get too close to the floor."
+   ],
+   "page": 521
+  },
+  {
+   "id": "gc_clutch",
+   "area": "interior",
+   "item": "Clutch pedal",
+   "check_points": [
+    "Moves smoothly.",
+    "Correct amount of free play."
+   ],
+   "page": 521
+  },
+  {
+   "id": "gc_head_restraints",
+   "area": "interior",
+   "item": "Head restraints",
+   "check_points": [
+    "Move smoothly and lock securely."
+   ],
+   "page": 521
+  },
+  {
+   "id": "gc_indicators",
+   "area": "interior",
+   "item": "Indicators/buzzers",
+   "check_points": [
+    "Indicators and buzzers function properly."
+   ],
+   "page": 521
+  },
+  {
+   "id": "gc_parking_brake",
+   "area": "interior",
+   "item": "Parking brake",
+   "check_points": [
+    "Operates normally.",
+    "Vehicle securely stopped on a slope with the parking brake on."
+   ],
+   "page": 521
+  },
+  {
+   "id": "gc_seat_belts",
+   "area": "interior",
+   "item": "Seat belts",
+   "check_points": [
+    "Operate smoothly.",
+    "Not damaged."
+   ],
+   "page": 521
+  },
+  {
+   "id": "gc_seats",
+   "area": "interior",
+   "item": "Seats",
+   "check_points": [
+    "Seat controls operate properly."
+   ],
+   "page": 521
+  },
+  {
+   "id": "gc_steering",
+   "area": "interior",
+   "item": "Steering wheel",
+   "check_points": [
+    "Rotates smoothly.",
+    "Correct amount of free play.",
+    "No strange sounds."
+   ],
+   "page": 521
+  },
+  {
+   "id": "gc_doors",
+   "area": "exterior",
+   "item": "Doors",
+   "check_points": [
+    "Operate smoothly."
+   ],
+   "page": 521
+  },
+  {
+   "id": "gc_hood",
+   "area": "exterior",
+   "item": "Engine hood",
+   "check_points": [
+    "Hood lock system works properly."
+   ],
+   "page": 521
+  },
+  {
+   "id": "gc_leaks",
+   "area": "exterior",
+   "item": "Fluid leaks",
+   "check_points": [
+    "No signs of fluid leakage after the vehicle has been parked."
+   ],
+   "page": 521
+  },
+  {
+   "id": "gc_lights",
+   "area": "exterior",
+   "item": "Lights",
+   "check_points": [
+    "Do all the lights come on?"
+   ],
+   "page": 521
+  },
+  {
+   "id": "gc_tires",
+   "area": "exterior",
+   "item": "Tires",
+   "check_points": [
+    "Inflation pressure is correct.",
+    "Not damaged or excessively worn.",
+    "Rotated according to the maintenance schedule.",
+    "Wheel nuts are not loose."
+   ],
+   "page": 522
+  },
+  {
+   "id": "gc_wipers",
+   "area": "exterior",
+   "item": "Windshield wipers",
+   "check_points": [
+    "Blades show no cracking, splitting, wear, contamination or deformation.",
+    "Clear the windshield without streaking or skipping."
+   ],
+   "page": 522
+  }
+ ],
+ "general_checks_note": "General maintenance (daily/regular checks). Their frequency is in the Scheduled Maintenance Guide (P.520).",
+ "service_types": [
+  {
+   "id": "oil_change",
+   "name": "Engine oil and filter change",
+   "category": "engine",
+   "app_part": "Engine",
+   "diy_possible": true,
+   "spec_ids": [
+    "oil_grade",
+    "oil_viscosity",
+    "oil_brand",
+    "oil_capacity_with_filter",
+    "oil_capacity_without_filter",
+    "oil_low_to_full"
+   ],
+   "procedure_id": "check_engine_oil",
+   "reset_procedure_id": "reset_oil_maintenance",
+   "intervals": [
+    {
+     "miles": 10000,
+     "months": null,
+     "condition": "normal",
+     "source_id": "cedar_park_dealer_schedule",
+     "status": "third_party_unverified",
+     "derived": true,
+     "basis": "Derived from the milestone list (oil changes at 10,000, 20,000, 30,000, 40,000, 50,000 miles). The page does not state an interval in words and gives no month limit."
+    }
+   ],
+   "interval_status": "third_party_unverified",
+   "page": 529,
+   "notes": "The truck tracks oil maintenance itself and prompts the driver; after a change, reset it in Vehicle Settings."
+  },
+  {
+   "id": "tire_rotation",
+   "name": "Tire rotation",
+   "category": "tires",
+   "app_part": "Wheels & Brakes › Wheel",
+   "diy_possible": true,
+   "spec_ids": [
+    "tire_replace_treadwear",
+    "tire_max_age"
+   ],
+   "procedure_id": "rotate_tires",
+   "reset_procedure_id": null,
+   "intervals": [
+    {
+     "miles": 5000,
+     "months": 6,
+     "condition": "normal",
+     "source_id": "cedar_park_dealer_schedule",
+     "status": "third_party_unverified",
+     "derived": false,
+     "basis": "The page's general rule (service every six months or 5,000 miles, whichever comes first) and rotate tires at 5,000 and 15,000 miles. Later milestones say to repeat the 5,000-mile list."
+    }
+   ],
+   "interval_status": "third_party_unverified",
+   "page": 538
+  },
+  {
+   "id": "tire_pressure_check",
+   "name": "Tire pressure check",
+   "category": "tires",
+   "app_part": "Wheels & Brakes › Wheel",
+   "diy_possible": true,
+   "spec_ids": [],
+   "procedure_id": "check_tires",
+   "reset_procedure_id": null,
+   "intervals": [],
+   "interval_status": "pending_source",
+   "page": 536,
+   "notes": "Target pressure depends on the vehicle's tire type: see tire_configs."
+  },
+  {
+   "id": "brake_fluid",
+   "name": "Brake fluid check/replace",
+   "category": "brakes",
+   "app_part": "Wheels & Brakes › Brakes",
+   "diy_possible": true,
+   "spec_ids": [
+    "brake_fluid_type"
+   ],
+   "procedure_id": "check_brake_fluid",
+   "reset_procedure_id": null,
+   "intervals": [],
+   "interval_status": "pending_source",
+   "page": 533
+  },
+  {
+   "id": "brake_inspection",
+   "name": "Brake inspection",
+   "category": "brakes",
+   "app_part": "Wheels & Brakes › Brakes",
+   "diy_possible": false,
+   "spec_ids": [
+    "brake_pad_wear_limit",
+    "brake_pedal_clearance_17",
+    "brake_pedal_free_play"
+   ],
+   "procedure_id": null,
+   "reset_procedure_id": null,
+   "intervals": [],
+   "interval_status": "pending_source",
+   "page": 625,
+   "notes": "Safety-critical: inspection and pad/rotor work should be done by a qualified technician."
+  },
+  {
+   "id": "coolant",
+   "name": "Engine coolant check/replace",
+   "category": "engine",
+   "app_part": "Engine",
+   "diy_possible": true,
+   "spec_ids": [
+    "coolant_type",
+    "coolant_mix_us",
+    "coolant_capacity_a",
+    "coolant_capacity_b"
+   ],
+   "procedure_id": "check_coolant",
+   "reset_procedure_id": null,
+   "intervals": [],
+   "interval_status": "pending_source",
+   "page": 531
+  },
+  {
+   "id": "transmission_fluid",
+   "name": "Automatic transmission fluid",
+   "category": "drivetrain",
+   "app_part": "Drivetrain",
+   "diy_possible": false,
+   "spec_ids": [
+    "atf_type",
+    "atf_capacity"
+   ],
+   "procedure_id": null,
+   "reset_procedure_id": null,
+   "intervals": [],
+   "interval_status": "pending_source",
+   "page": 623,
+   "notes": "Dealer service."
+  },
+  {
+   "id": "transfer_case_oil",
+   "name": "Transfer case oil (4WD)",
+   "category": "drivetrain",
+   "app_part": "Drivetrain",
+   "diy_possible": false,
+   "spec_ids": [
+    "transfer_oil_type",
+    "transfer_oil_capacity"
+   ],
+   "procedure_id": null,
+   "reset_procedure_id": null,
+   "intervals": [],
+   "interval_status": "pending_source",
+   "page": 624
+  },
+  {
+   "id": "differential_oil",
+   "name": "Differential oil",
+   "category": "drivetrain",
+   "app_part": "Drivetrain",
+   "diy_possible": false,
+   "spec_ids": [
+    "diff_oil_type",
+    "diff_front_capacity",
+    "diff_rear_capacity_std",
+    "diff_rear_capacity_mt_trd"
+   ],
+   "procedure_id": null,
+   "reset_procedure_id": null,
+   "intervals": [],
+   "interval_status": "pending_source",
+   "page": 625
+  },
+  {
+   "id": "spark_plugs",
+   "name": "Spark plugs",
+   "category": "engine",
+   "app_part": "Engine",
+   "diy_possible": false,
+   "spec_ids": [
+    "spark_plug",
+    "spark_plug_gap"
+   ],
+   "procedure_id": null,
+   "reset_procedure_id": null,
+   "intervals": [],
+   "interval_status": "pending_source",
+   "page": 623
+  },
+  {
+   "id": "cabin_air_filter",
+   "name": "Air conditioning (cabin) filter",
+   "category": "interior",
+   "app_part": "Interior",
+   "diy_possible": true,
+   "spec_ids": [],
+   "procedure_id": "replace_ac_filter",
+   "reset_procedure_id": null,
+   "intervals": [],
+   "interval_status": "pending_source",
+   "page": 553,
+   "notes": "Replace earlier in dusty areas or heavy traffic."
+  },
+  {
+   "id": "battery_check",
+   "name": "Battery check",
+   "category": "electrical",
+   "app_part": "Engine",
+   "diy_possible": true,
+   "spec_ids": [
+    "battery_open_voltage",
+    "battery_slow_charge"
+   ],
+   "procedure_id": "check_battery",
+   "reset_procedure_id": null,
+   "intervals": [],
+   "interval_status": "pending_source",
+   "page": 534
+  },
+  {
+   "id": "wiper_blades",
+   "name": "Wiper blades",
+   "category": "exterior",
+   "app_part": "Windows & Tint",
+   "diy_possible": true,
+   "spec_ids": [],
+   "procedure_id": null,
+   "reset_procedure_id": null,
+   "intervals": [],
+   "interval_status": "pending_source",
+   "page": 522,
+   "notes": "Replace when cracked, split, worn or streaking (general checks P.522)."
+  },
+  {
+   "id": "front_turn_bulb",
+   "name": "Front turn signal/parking bulb",
+   "category": "lighting",
+   "app_part": "Rear › Brake lights",
+   "diy_possible": true,
+   "spec_ids": [
+    "bulb_front_turn",
+    "lights_dealer_only"
+   ],
+   "procedure_id": "replace_front_turn_bulb",
+   "reset_procedure_id": null,
+   "intervals": [],
+   "interval_status": "pending_source",
+   "page": 561,
+   "notes": "Only this bulb is owner-replaceable; tail, stop and most other lights are LED units replaced by the dealer."
+  },
+  {
+   "id": "key_battery",
+   "name": "Electronic key battery",
+   "category": "key",
+   "app_part": "Interior",
+   "diy_possible": true,
+   "spec_ids": [
+    "key_battery"
+   ],
+   "procedure_id": "replace_key_battery",
+   "reset_procedure_id": null,
+   "intervals": [],
+   "interval_status": "pending_source",
+   "page": 555
+  },
+  {
+   "id": "fuse_replacement",
+   "name": "Fuse replacement",
+   "category": "electrical",
+   "app_part": "Engine",
+   "diy_possible": true,
+   "spec_ids": [],
+   "procedure_id": "replace_fuse",
+   "reset_procedure_id": null,
+   "intervals": [],
+   "interval_status": "pending_source",
+   "page": 557
+  },
+  {
+   "id": "scheduled_maintenance_reset",
+   "name": "Reset 'maintenance required' message",
+   "category": "reminders",
+   "app_part": "Engine",
+   "diy_possible": true,
+   "spec_ids": [],
+   "procedure_id": "reset_scheduled_maintenance",
+   "reset_procedure_id": null,
+   "intervals": [],
+   "interval_status": "pending_source",
+   "page": 519,
+   "notes": "Do after performing the scheduled maintenance."
+  }
+ ],
+ "schedule_sources": [
+  {
+   "id": "cedar_park_dealer_schedule",
+   "title": "Toyota Tacoma Maintenance Schedule",
+   "publisher": "Toyota of Cedar Park (dealership website)",
+   "url": "https://www.toyotaofcedarpark.com/service/service-tips/toyota-tacoma-maintenance-schedule/",
+   "accessed": "2026-09-21",
+   "official": false,
+   "verified_against_toyota_guide": false,
+   "model_year_stated": null,
+   "general_rule": {
+    "miles": 5000,
+    "months": 6,
+    "rule": "whichever comes first",
+    "quote": "Typically, it means scheduling service every six months or every 5,000 miles, whichever comes first."
+   },
+   "caveats": [
+    "A dealership marketing page, not Toyota's official guide. Provided by the user as the schedule to log.",
+    "States no model year, and says 'specific tasks may vary based on your Tacoma's model, year, and driving conditions.' Applicability to the 2026 Tacoma is unconfirmed.",
+    "The page says service intervals occur at 5,000, 15,000 and 30,000 miles, but then lists tasks at other mileages too.",
+    "It never states an oil interval in words. Oil changes appear at 10,000, 20,000, 30,000 ('Change engine air filter and oil'), 40,000 and 50,000 ('Additional oil change').",
+    "Cabin air filter wording is inconsistent: inspect at 10,000/15,000/45,000, replace at 20,000, 40,000 and 50,000, and 25,000 explicitly excludes replacement.",
+    "No time-based oil interval (months) and no severe-conditions schedule is given.",
+    "Milestone text is logged as written. Some entries, such as 'Repeat all standard 5,000-mile maintenance', refer back to the 5,000-mile list."
+   ],
+   "trust_tier": "provisional"
+  }
+ ],
+ "schedule_milestones": [
+  {
+   "miles": 5000,
+   "source_id": "cedar_park_dealer_schedule",
+   "tasks": [
+    {
+     "text": "Rotate tires",
+     "kind": "task",
+     "service_type_id": "tire_rotation"
+    },
+    {
+     "text": "Visually inspect brakes",
+     "kind": "task",
+     "service_type_id": "brake_inspection"
+    },
+    {
+     "text": "Check and replenish all fluid levels",
+     "kind": "task"
+    },
+    {
+     "text": "Inspect windshield wiper blades",
+     "kind": "task",
+     "service_type_id": "wiper_blades"
+    },
+    {
+     "text": "Examine for signs of aging in wiper blades",
+     "kind": "task",
+     "service_type_id": "wiper_blades"
+    }
+   ]
+  },
+  {
+   "miles": 10000,
+   "source_id": "cedar_park_dealer_schedule",
+   "tasks": [
+    {
+     "text": "Repeat all 5,000-mile Toyota Tacoma maintenance intervals",
+     "kind": "repeat_previous"
+    },
+    {
+     "text": "Inspect cabin air filter",
+     "kind": "task",
+     "service_type_id": "cabin_air_filter"
+    },
+    {
+     "text": "Change oil and oil filter",
+     "kind": "task",
+     "service_type_id": "oil_change"
+    }
+   ]
+  },
+  {
+   "miles": 15000,
+   "source_id": "cedar_park_dealer_schedule",
+   "tasks": [
+    {
+     "text": "Inspect driver's floor mat installation",
+     "kind": "task"
+    },
+    {
+     "text": "Check and refill all fluid levels",
+     "kind": "task"
+    },
+    {
+     "text": "Inspect windshield wiper blades",
+     "kind": "task",
+     "service_type_id": "wiper_blades"
+    },
+    {
+     "text": "Retorque propeller shaft bolt",
+     "kind": "task"
+    },
+    {
+     "text": "Rotate tires",
+     "kind": "task",
+     "service_type_id": "tire_rotation"
+    },
+    {
+     "text": "Visually inspect brakes",
+     "kind": "task",
+     "service_type_id": "brake_inspection"
+    },
+    {
+     "text": "Additional inspections for various components",
+     "kind": "inspect_components",
+     "components": [
+      "Ball joints and dust covers",
+      "Brake lines and hoses",
+      "Cabin air filter",
+      "Engine coolant",
+      "Exhaust pipes and mountings",
+      "Radiator and condenser",
+      "Steering gear",
+      "Steering linkage and boots"
+     ]
+    },
+    {
+     "text": "Lubricate propeller shaft",
+     "kind": "task",
+     "drivetrain": "4wd"
+    },
+    {
+     "text": "Inspect drive shaft boots",
+     "kind": "task",
+     "drivetrain": "4wd"
+    },
+    {
+     "text": "Change front differential oil",
+     "kind": "task",
+     "service_type_id": "differential_oil",
+     "drivetrain": "4wd"
+    }
+   ]
+  },
+  {
+   "miles": 20000,
+   "source_id": "cedar_park_dealer_schedule",
+   "tasks": [
+    {
+     "text": "Change oil and oil filter",
+     "kind": "task",
+     "service_type_id": "oil_change"
+    },
+    {
+     "text": "Replace cabin air filter",
+     "kind": "task",
+     "service_type_id": "cabin_air_filter"
+    },
+    {
+     "text": "Repeat all standard 5,000-mile checks",
+     "kind": "repeat_previous"
+    }
+   ]
+  },
+  {
+   "miles": 25000,
+   "source_id": "cedar_park_dealer_schedule",
+   "tasks": [
+    {
+     "text": "Repeat all Toyota Tacoma maintenance intervals from previous appointments, excluding oil change and cabin air filter replacement.",
+     "kind": "repeat_previous"
+    }
+   ]
+  },
+  {
+   "miles": 30000,
+   "source_id": "cedar_park_dealer_schedule",
+   "tasks": [
+    {
+     "text": "Check automatic transmission for leakage",
+     "kind": "task",
+     "service_type_id": "transmission_fluid"
+    },
+    {
+     "text": "Retorque propeller shaft bolt",
+     "kind": "task"
+    },
+    {
+     "text": "Change engine air filter and oil",
+     "kind": "task",
+     "service_type_id": "oil_change"
+    },
+    {
+     "text": "Additional inspections for various components",
+     "kind": "inspect_components",
+     "components": [
+      "Automatic transmission fluid cooler",
+      "Ball joints and dust covers",
+      "Brake components, lines, and hoses",
+      "Engine coolant",
+      "Exhaust pipes and mountings",
+      "Fuel lines and connections",
+      "Fuel tank band",
+      "Fuel tank vapor vent system hoses",
+      "Fuel tank cap gasket",
+      "Radiator and condenser",
+      "Steering gear",
+      "Steering linkage and boots"
+     ]
+    },
+    {
+     "text": "Lubricate propeller shaft",
+     "kind": "task",
+     "drivetrain": "4wd"
+    },
+    {
+     "text": "Change front differential oil",
+     "kind": "task",
+     "service_type_id": "differential_oil",
+     "drivetrain": "4wd"
+    }
+   ]
+  },
+  {
+   "miles": 35000,
+   "source_id": "cedar_park_dealer_schedule",
+   "tasks": [
+    {
+     "text": "Repeat all standard 5,000-mile maintenance",
+     "kind": "repeat_previous"
+    }
+   ]
+  },
+  {
+   "miles": 40000,
+   "source_id": "cedar_park_dealer_schedule",
+   "tasks": [
+    {
+     "text": "Perform standard maintenance tasks",
+     "kind": "repeat_previous"
+    },
+    {
+     "text": "Change oil and oil filter",
+     "kind": "task",
+     "service_type_id": "oil_change"
+    },
+    {
+     "text": "Replace cabin air filter",
+     "kind": "task",
+     "service_type_id": "cabin_air_filter"
+    }
+   ]
+  },
+  {
+   "miles": 45000,
+   "source_id": "cedar_park_dealer_schedule",
+   "tasks": [
+    {
+     "text": "Inspect various components",
+     "kind": "inspect_components",
+     "components": [
+      "Ball joints and dust covers",
+      "Brake lines and hoses",
+      "Cabin air filter",
+      "Engine coolant",
+      "Exhaust pipes and mountings",
+      "Radiator and condenser",
+      "Steering gear",
+      "Steering linkage and boots"
+     ]
+    }
+   ]
+  },
+  {
+   "miles": 50000,
+   "source_id": "cedar_park_dealer_schedule",
+   "tasks": [
+    {
+     "text": "Standard 5,000-mile maintenance",
+     "kind": "repeat_previous"
+    },
+    {
+     "text": "Additional oil change",
+     "kind": "task",
+     "service_type_id": "oil_change"
+    },
+    {
+     "text": "Replace oil filter and cabin air filter",
+     "kind": "task",
+     "service_type_id": "cabin_air_filter"
+    }
+   ]
+  }
+ ],
+ "schedule_milestones_note": "Logged as written from the dealer page. `kind: repeat_previous` means the page says to repeat an earlier list rather than naming tasks. `service_type_id` is set only where the task clearly matches a service type here; otherwise it is absent. Not verified against Toyota's guide.",
+ "default_schedule_source_id": "cedar_park_dealer_schedule",
+ "trust_policy": {
+  "decision": "2026-09-21: use the most verifiable data available now; replace with an exact VIN-based lookup later.",
+  "order": [
+   "official manual specs (verified, 2026-specific)",
+   "dealer schedule (provisional, unofficial, unverified)"
+  ],
+  "not_loaded": "A Haynes-derived enthusiast schedule was compared but deliberately NOT loaded: it is third-hand and generic across generations (includes V6-only items).",
+  "rule": "Anything coming from a provisional source must be labeled provisional wherever the app shows it, and must be safe to replace without changing user records (user data refers to service type ids only)."
+ }
+}

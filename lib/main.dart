@@ -4,6 +4,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import 'maintenance_record.dart';
 import 'scheduled_maintenance.dart';
+import 'vehicle_stats.dart';
 
 void main() {
   runApp(const MaintenanceGoApp());
@@ -53,6 +54,9 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _selectedIndex = 0;
+  // Dashboard stats live here so they survive switching tabs. (Still only in
+  // memory: they reset when the app restarts.)
+  VehicleStats _stats = placeholderStats;
 
   @override
   Widget build(BuildContext context) {
@@ -94,7 +98,10 @@ class _MainShellState extends State<MainShell> {
       // Only the selected tab is built. That way the 3D viewer isn't running
       // in the background while you're on another tab.
       body: switch (_selectedIndex) {
-        0 => const LandingPage(),
+        0 => LandingPage(
+          stats: _stats,
+          onStatsChanged: (s) => setState(() => _stats = s),
+        ),
         1 => const MyVehiclePage(),
         2 => const _PlaceholderPage(label: 'Profile'),
         _ => const _PlaceholderPage(label: 'Settings'),
@@ -120,7 +127,85 @@ class _PlaceholderPage extends StatelessWidget {
 }
 
 class LandingPage extends StatelessWidget {
-  const LandingPage({super.key});
+  final VehicleStats stats;
+  final ValueChanged<VehicleStats> onStatsChanged;
+
+  const LandingPage({
+    super.key,
+    required this.stats,
+    required this.onStatsChanged,
+  });
+
+  // Tapping the stats opens this sheet: type them in now, or (later) read
+  // them from a dashboard photo.
+  void _showStatsOptions(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Update vehicle stats',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              _AddOptionTile(
+                icon: Icons.edit_outlined,
+                title: 'Enter manually',
+                subtitle: 'Type in what your dashboard shows',
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  final updated = await Navigator.of(context)
+                      .push<VehicleStats>(
+                        MaterialPageRoute(
+                          builder: (_) => EditStatsPage(initial: stats),
+                        ),
+                      );
+                  if (updated != null) onStatsChanged(updated);
+                },
+              ),
+              // TODO(future): needs camera access plus a way to read the
+              // dashboard photo (odometer, MPG, fuel, oil life, tire
+              // pressure). Read values should be shown for the user to
+              // confirm, not saved silently.
+              _AddOptionTile(
+                icon: Icons.photo_camera_outlined,
+                title: 'Dashboard photo',
+                subtitle: 'Snap your dashboard and fill it in for you',
+                comingSoon: true,
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Dashboard photos are coming in a future update',
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -130,10 +215,13 @@ class LandingPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ---- Top 40%: My Vehicle ----
+          // ---- Top 46%: My Vehicle ----
           SizedBox(
-            height: screenHeight * 0.4,
-            child: const _MyVehicleSection(),
+            height: screenHeight * 0.46,
+            child: _MyVehicleSection(
+              stats: stats,
+              onStatsTap: () => _showStatsOptions(context),
+            ),
           ),
 
           // ---- Remaining space: navigation ----
@@ -604,7 +692,10 @@ class _ModsPanel extends StatelessWidget {
 }
 
 class _MyVehicleSection extends StatelessWidget {
-  const _MyVehicleSection();
+  final VehicleStats stats;
+  final VoidCallback onStatsTap;
+
+  const _MyVehicleSection({required this.stats, required this.onStatsTap});
 
   @override
   Widget build(BuildContext context) {
@@ -646,12 +737,35 @@ class _MyVehicleSection extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
+          // Dashboard stats. Tapping any of them opens the update sheet.
+          GestureDetector(
+            onTap: onStatsTap,
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              children: [
+                _StatTile(
+                  value: stats.avgMpg.toStringAsFixed(1),
+                  label: 'Avg MPG',
+                ),
+                const SizedBox(width: 8),
+                _StatTile(value: '${stats.fuelPercent}%', label: 'Fuel'),
+                const SizedBox(width: 8),
+                _StatTile(value: '${stats.oilLifePercent}%', label: 'Oil life'),
+                const SizedBox(width: 8),
+                _StatTile(value: '${stats.tirePsi}', label: 'Tire PSI'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
           Row(
             children: [
-              const Text(
-                '42,180 miles',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
+              Text(
+                formatMiles(stats.mileage),
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 15,
+                ),
               ),
               const SizedBox(width: 10),
               Container(
@@ -670,6 +784,49 @@ class _MyVehicleSection extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+// One small stat box (value over label) in the vehicle header.
+class _StatTile extends StatelessWidget {
+  final String value;
+  final String label;
+
+  const _StatTile({required this.value, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              value,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2707,6 +2864,160 @@ class _AddScheduledPageState extends State<AddScheduledPage> {
               minLines: 3,
               maxLines: 6,
               textCapitalization: TextCapitalization.sentences,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---- Edit vehicle stats page (manual entry) ----
+// Returns a new VehicleStats to the home page when saved.
+class EditStatsPage extends StatefulWidget {
+  final VehicleStats initial;
+
+  const EditStatsPage({super.key, required this.initial});
+
+  @override
+  State<EditStatsPage> createState() => _EditStatsPageState();
+}
+
+class _EditStatsPageState extends State<EditStatsPage> {
+  final _formKey = GlobalKey<FormState>();
+  late final _mileage = TextEditingController(
+    text: '${widget.initial.mileage}',
+  );
+  late final _mpg = TextEditingController(
+    text: widget.initial.avgMpg.toStringAsFixed(1),
+  );
+  late final _fuel = TextEditingController(
+    text: '${widget.initial.fuelPercent}',
+  );
+  late final _oil = TextEditingController(
+    text: '${widget.initial.oilLifePercent}',
+  );
+  late final _psi = TextEditingController(text: '${widget.initial.tirePsi}');
+
+  @override
+  void dispose() {
+    _mileage.dispose();
+    _mpg.dispose();
+    _fuel.dispose();
+    _oil.dispose();
+    _psi.dispose();
+    super.dispose();
+  }
+
+  // Validators: must be a number within a sensible range.
+  String? Function(String?) _range(num min, num max, {bool decimal = false}) {
+    return (v) {
+      final n = decimal ? double.tryParse(v ?? '') : int.tryParse(v ?? '');
+      if (n == null) return 'Enter a number';
+      if (n < min || n > max) return 'Between $min and $max';
+      return null;
+    };
+  }
+
+  void _save() {
+    if (!_formKey.currentState!.validate()) return;
+    Navigator.pop(
+      context,
+      VehicleStats(
+        mileage: int.parse(_mileage.text),
+        avgMpg: double.parse(_mpg.text),
+        fuelPercent: int.parse(_fuel.text),
+        oilLifePercent: int.parse(_oil.text),
+        tirePsi: int.parse(_psi.text),
+        updated: DateTime.now(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const gap = SizedBox(height: 14);
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
+        title: const Text(
+          'Vehicle stats',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: _save,
+            child: const Text(
+              'Save',
+              style: TextStyle(color: AppColors.accent, fontSize: 16),
+            ),
+          ),
+        ],
+      ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 16),
+              child: Text(
+                'Last updated ${formatDate(widget.initial.updated)}. Enter what '
+                'your dashboard shows.',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  height: 1.35,
+                ),
+              ),
+            ),
+            TextFormField(
+              controller: _mileage,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _fieldDecoration('Odometer (miles)'),
+              keyboardType: TextInputType.number,
+              validator: _range(0, 999999),
+            ),
+            gap,
+            TextFormField(
+              controller: _mpg,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _fieldDecoration('Average MPG'),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              validator: _range(0, 150, decimal: true),
+            ),
+            gap,
+            TextFormField(
+              controller: _fuel,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _fieldDecoration('Fuel level (%)'),
+              keyboardType: TextInputType.number,
+              validator: _range(0, 100),
+            ),
+            gap,
+            TextFormField(
+              controller: _oil,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _fieldDecoration('Oil life (%)'),
+              keyboardType: TextInputType.number,
+              validator: _range(0, 100),
+            ),
+            gap,
+            TextFormField(
+              controller: _psi,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _fieldDecoration('Tire pressure (PSI)'),
+              keyboardType: TextInputType.number,
+              validator: _range(0, 100),
             ),
           ],
         ),

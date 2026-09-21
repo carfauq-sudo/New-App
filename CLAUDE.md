@@ -145,6 +145,48 @@ in `lib/main.dart`. Design direction:
   `Reminder`, `ServiceType` classes), navigation/routing, local storage
   layer, and any AI/receipt-parsing functionality.
 
+## Vehicle reference data (from the owner's manual)
+
+The truck's manual data lives in `assets/data/toyota_tacoma_2026.json`, loaded
+by `lib/data/vehicle_reference.dart`. Tests: `test/vehicle_reference_test.dart`.
+
+- **Source:** Toyota 2026 Tacoma Owner's Manual (OM04051U, gasoline T24A-FTS
+  models only). Every fact carries `page` = the printed manual page (PDF page
+  index = printed page + 2).
+- **Read-only, separate from user data.** Logs, the schedule and stats are the
+  user's and live elsewhere. They point at reference items by id only (for
+  example a log's service type is `oil_change`).
+- **Performance rules:** loaded once, lazily, and parsed off the UI thread
+  (`compute`). Screens must never block on it: render first, fill in when the
+  future completes, and handle it failing. Keep lookups by id (maps are built at
+  parse time). If the data grows large (more vehicles), swap the loader for
+  SQLite behind `ReferenceRepository` without touching screens.
+- **Service intervals come from a dealer page, not Toyota's guide.** The owner's
+  manual has no intervals; it points to the "Scheduled Maintenance Guide /
+  Owner's Manual Supplement" (P.518, 520, 554), which is still not loaded
+  (`pending_sources`). The user supplied a Toyota of Cedar Park web page as the
+  schedule, logged on 2026-09-21 in `schedule_sources` / `schedule_milestones`,
+  flagged `official: false` and unverified. It states no model year and has
+  internal inconsistencies (listed in its `caveats`). Only two `intervals` are
+  filled (oil change 10,000 mi, tire rotation 5,000 mi / 6 mo), each marked
+  `third_party_unverified` with its basis. Replace/confirm them from the
+  official guide before relying on them (e.g. for oil-life math).
+- **Decision (2026-09-21): use the most verifiable data available now, and
+  replace it later with an exact VIN-based lookup.** Trust order: the owner's
+  manual specs (official, verified) first; the dealer schedule is *provisional*
+  (`trust_tier`, `default_schedule_source_id`). A Haynes-derived enthusiast
+  schedule was compared and deliberately NOT loaded (third-hand, spans
+  generations, includes V6-only items). Anything provisional must be labeled
+  provisional wherever the app shows it, and replacing it must not touch user
+  records, which point at service type ids only.
+- **Tire specs depend on the truck's tire type (A-D at 17", A-C at 18").** The
+  manual doesn't map types to trims like SR5; the vehicle profile must record
+  the type from the door-jamb tire label. Don't guess.
+- **Publishing later:** if the app goes public, check Toyota's terms before
+  redistributing manual content, and decide how other vehicles' data gets in
+  (curated files, a licensed data API, or AI-assisted import that the user
+  confirms).
+
 ## Deferred work (intentionally NOT built yet — needs doing later)
 
 - **Camera / photo access for receipt pictures.** The "Receipt picture" option
@@ -172,6 +214,12 @@ in `lib/main.dart`. Design direction:
   task on this vehicle, have an AI model pick credible videos, and open them
   on tap. Show them as suggestions, and keep safety-critical jobs (e.g.
   brakes) pointing to a mechanic per the guardrails above.
+- **Dashboard photos for vehicle stats.** The Home page shows Avg MPG, fuel,
+  oil life, and tire PSI tiles (plus the odometer) that the user types in via
+  an edit form. The "Dashboard photo" option is a "Coming soon" placeholder.
+  Later: camera access plus a way to read the photo (OCR / vision model). Read
+  values should be shown for the user to confirm before saving. Stats are also
+  memory-only for now.
 - **Local storage for maintenance records.** Logs added through the manual
   form currently live only in memory and disappear on restart. The data model
   (`lib/maintenance_record.dart`) exists; the storage layer does not.
