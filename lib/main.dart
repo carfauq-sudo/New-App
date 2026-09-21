@@ -1833,8 +1833,7 @@ class _MaintenanceCalendarPageState extends State<MaintenanceCalendarPage> {
   }
 
   // Full details for one day, in a bottom sheet.
-  void _showDay(int day, List<ScheduledMaintenance> items) {
-    final date = DateTime(_month.year, _month.month, day);
+  void _showDay(DateTime date, List<ScheduledMaintenance> items) {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.surface,
@@ -2001,7 +2000,11 @@ class _MaintenanceCalendarPageState extends State<MaintenanceCalendarPage> {
                       onTap: byDay[i - leadingBlanks + 1] == null
                           ? null
                           : () => _showDay(
-                              i - leadingBlanks + 1,
+                              DateTime(
+                                _month.year,
+                                _month.month,
+                                i - leadingBlanks + 1,
+                              ),
                               byDay[i - leadingBlanks + 1]!,
                             ),
                     ),
@@ -2029,7 +2032,201 @@ class _MaintenanceCalendarPageState extends State<MaintenanceCalendarPage> {
                 ),
               ],
             ),
+            const SizedBox(height: 28),
+            _buildUpcoming(today),
           ],
+        ),
+      ),
+    );
+  }
+
+  // The next few scheduled items from today on, soonest first.
+  Widget _buildUpcoming(DateTime now) {
+    final todayDate = DateTime(now.year, now.month, now.day);
+    final upcoming =
+        _scheduled.where((m) => !m.date.isBefore(todayDate)).toList()
+          ..sort((a, b) => a.date.compareTo(b.date));
+    final next = upcoming.take(5).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 4, bottom: 10),
+          child: Text(
+            'Upcoming',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        if (next.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(left: 4),
+            child: Text(
+              'Nothing scheduled ahead',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+            ),
+          ),
+        for (final item in next)
+          _UpcomingRow(
+            item: item,
+            daysAway: DateTime(
+              item.date.year,
+              item.date.month,
+              item.date.day,
+            ).difference(todayDate).inDays,
+            // Tapping opens the same details sheet as tapping that day.
+            onTap: () => _showDay(
+              item.date,
+              _scheduled
+                  .where(
+                    (m) =>
+                        m.date.year == item.date.year &&
+                        m.date.month == item.date.month &&
+                        m.date.day == item.date.day,
+                  )
+                  .toList(),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// One row in the Upcoming list: date block, title, part, and how far away it
+// is. Items within a week get a "Due soon" tag.
+class _UpcomingRow extends StatelessWidget {
+  final ScheduledMaintenance item;
+  final int daysAway;
+  final VoidCallback onTap;
+
+  const _UpcomingRow({
+    required this.item,
+    required this.daysAway,
+    required this.onTap,
+  });
+
+  String get _relative {
+    if (daysAway == 0) return 'Today';
+    if (daysAway == 1) return 'Tomorrow';
+    if (daysAway < 60) return 'in $daysAway days';
+    return 'in ${(daysAway / 30).round()} months';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dueSoon = daysAway <= 7;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: AppColors.border),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                // Date block: month over day number.
+                Container(
+                  width: 46,
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        monthAbbreviation(item.date.month).toUpperCase(),
+                        style: const TextStyle(
+                          color: AppColors.accent,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        '${item.date.day}',
+                        style: const TextStyle(
+                          color: AppColors.accent,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.title,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        item.part,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      _relative,
+                      style: TextStyle(
+                        color: dueSoon
+                            ? AppColors.accent
+                            : AppColors.textSecondary,
+                        fontSize: 13,
+                        fontWeight: dueSoon ? FontWeight.w600 : FontWeight.w400,
+                      ),
+                    ),
+                    if (dueSoon) ...[
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.accent.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Text(
+                          'Due soon',
+                          style: TextStyle(
+                            color: AppColors.accent,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

@@ -70,6 +70,8 @@ const _months = [
   'Dec',
 ];
 
+String monthAbbreviation(int month) => _months[month - 1];
+
 String formatDate(DateTime d) => '${_months[d.month - 1]} ${d.day}, ${d.year}';
 
 String formatTime(DateTime d) {
