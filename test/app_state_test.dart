@@ -63,6 +63,28 @@ void main() {
     expect(calls, 1);
   });
 
+  test('lastService is the most recent record by date, not list order', () {
+    final state = AppState();
+    expect(state.lastService!.id, 'r11'); // June 18, the newest placeholder
+  });
+
+  test('lastService is null once every record is removed', () {
+    final state = AppState();
+    for (final r in [...state.records]) {
+      state.removeRecord(r.id);
+    }
+    expect(state.lastService, isNull);
+  });
+
+  test('currentMileageEstimate falls back to the stats mileage', () {
+    final state = AppState();
+    // Placeholder stats mileage is higher than any placeholder log, so it's
+    // also what the mileage estimate should resolve to (no driving history
+    // spans enough time to project a rate from, so it uses the latest
+    // reading as-is).
+    expect(state.currentMileageEstimate(now), state.stats.mileage);
+  });
+
   test('a log that is not tagged as an oil change is ignored', () {
     final state = AppState();
     state.addRecord(

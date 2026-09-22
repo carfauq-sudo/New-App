@@ -98,6 +98,23 @@ String formatMoney(int cents) {
   return '\$$withCommas.$rest';
 }
 
+// A short "how long ago" phrase for the vehicle header, e.g. "3 months ago".
+// Lowercase so it reads naturally after a lead-in like "Last service ...".
+String relativeTimeAgo(DateTime date, DateTime now) {
+  final days = DateTime(
+    now.year,
+    now.month,
+    now.day,
+  ).difference(DateTime(date.year, date.month, date.day)).inDays;
+  if (days <= 0) return 'today';
+  if (days == 1) return 'yesterday';
+  if (days < 30) return '$days days ago';
+  final months = (days / 30.4375).round();
+  if (months < 12) return months == 1 ? '1 month ago' : '$months months ago';
+  final years = (days / 365.25).round();
+  return years == 1 ? '1 year ago' : '$years years ago';
+}
+
 String formatMiles(int miles) {
   final withCommas = miles.toString().replaceAllMapped(
     RegExp(r'\B(?=(\d{3})+(?!\d))'),

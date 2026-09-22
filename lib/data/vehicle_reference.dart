@@ -344,9 +344,16 @@ class VehicleReference {
     );
   }
 
-  /// The schedule the app currently uses, and how far to trust it.
-  ScheduleSource get defaultScheduleSource =>
-      scheduleSources.firstWhere((s) => s.id == defaultScheduleSourceId);
+  /// The schedule the app currently uses, and how far to trust it. Null if
+  /// the data's default_schedule_source_id doesn't match any schedule_sources
+  /// entry (a data-file mistake), so callers degrade gracefully instead of
+  /// crashing.
+  ScheduleSource? get defaultScheduleSource {
+    for (final source in scheduleSources) {
+      if (source.id == defaultScheduleSourceId) return source;
+    }
+    return null;
+  }
 
   SpecItem? spec(String id) => _specById[id];
   Procedure? procedure(String id) => _procedureById[id];

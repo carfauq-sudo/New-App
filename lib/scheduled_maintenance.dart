@@ -24,6 +24,17 @@ class ScheduledMaintenance {
 
 // Dates are fixed (not relative to "today") so the placeholder calendar looks
 // the same every time. They fall in the months around September 2026.
+// A day count relative to today, phrased for a countdown: "Today",
+// "Tomorrow", "in N days", or "in N months" for anything further out.
+// <= 0 (today, or already past due) reads as "Today" rather than a
+// confusing negative count.
+String relativeDaysLabel(int daysAway) {
+  if (daysAway <= 0) return 'Today';
+  if (daysAway == 1) return 'Tomorrow';
+  if (daysAway < 60) return 'in $daysAway days';
+  return 'in ${(daysAway / 30).round()} months';
+}
+
 final placeholderScheduled = <ScheduledMaintenance>[
   ScheduledMaintenance(
     title: 'Tire rotation',

@@ -60,6 +60,19 @@ class _MainShellState extends State<MainShell> {
   // switching tabs and every screen sees the same copy. Memory only for now.
   final AppState _appState = AppState();
 
+  // A tab is only built the first time it's opened (so, e.g., the 3D viewer
+  // on My Vehicle doesn't load before you've ever visited it), but once
+  // built it's kept alive in the IndexedStack below rather than being torn
+  // down when you switch away, so coming back doesn't reload it from scratch.
+  final Set<int> _visitedTabs = {0};
+
+  void _selectTab(int index) {
+    setState(() {
+      _selectedIndex = index;
+      _visitedTabs.add(index);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -69,8 +82,7 @@ class _MainShellState extends State<MainShell> {
         indicatorColor: AppColors.accent.withValues(alpha: 0.18),
         surfaceTintColor: Colors.transparent,
         selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) =>
-            setState(() => _selectedIndex = index),
+        onDestinationSelected: _selectTab,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined, color: AppColors.textSecondary),
@@ -97,14 +109,26 @@ class _MainShellState extends State<MainShell> {
           ),
         ],
       ),
-      // Only the selected tab is built. That way the 3D viewer isn't running
-      // in the background while you're on another tab.
-      body: switch (_selectedIndex) {
-        0 => LandingPage(appState: _appState),
-        1 => const MyVehiclePage(),
-        2 => const _PlaceholderPage(label: 'Profile'),
-        _ => const _PlaceholderPage(label: 'Settings'),
-      },
+      // Each tab keeps its state once built (IndexedStack), so switching back
+      // to My Vehicle doesn't reload the 3D viewer; a tab not yet visited is
+      // left as a cheap placeholder instead of being built for nothing.
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: [
+          _visitedTabs.contains(0)
+              ? LandingPage(appState: _appState)
+              : const SizedBox.shrink(),
+          _visitedTabs.contains(1)
+              ? const MyVehiclePage()
+              : const SizedBox.shrink(),
+          _visitedTabs.contains(2)
+              ? const _PlaceholderPage(label: 'Profile')
+              : const SizedBox.shrink(),
+          _visitedTabs.contains(3)
+              ? const _PlaceholderPage(label: 'Settings')
+              : const SizedBox.shrink(),
+        ],
+      ),
     );
   }
 }
@@ -359,6 +383,14 @@ class LandingPage extends StatelessWidget {
     );
   }
 
+  // "Last service ..." text for the header, computed from the real logs
+  // instead of a fixed placeholder.
+  String _lastServiceLabel() {
+    final last = appState.lastService;
+    if (last == null) return 'No service logged yet';
+    return 'Last service ${relativeTimeAgo(last.date, DateTime.now())}';
+  }
+
   Widget _buildBody(
     BuildContext context,
     double screenHeight,
@@ -375,6 +407,7 @@ class LandingPage extends StatelessWidget {
             child: _MyVehicleSection(
               stats: appState.stats,
               oilLife: oilLife,
+              lastServiceLabel: _lastServiceLabel(),
               onStatsTap: () => _showStatsOptions(context),
               onOilTap: () => _showOilLife(context, oilLife, reference),
             ),
@@ -427,7 +460,11 @@ class LandingPage extends StatelessWidget {
                     final record = await Navigator.of(context)
                         .push<MaintenanceRecord>(
                           MaterialPageRoute(
-                            builder: (_) => const AddMaintenancePage(),
+                            builder: (_) => AddMaintenancePage(
+                              currentMileage: appState.currentMileageEstimate(
+                                DateTime.now(),
+                              ),
+                            ),
                           ),
                         );
                     if (record != null) appState.addRecord(record);
@@ -547,13 +584,6 @@ class _UpcomingMiniCard extends StatelessWidget {
     required this.onTap,
   });
 
-  String get _relative {
-    if (daysAway <= 0) return 'Today';
-    if (daysAway == 1) return 'Tomorrow';
-    if (daysAway < 60) return 'in $daysAway days';
-    return 'in ${(daysAway / 30).round()} months';
-  }
-
   @override
   Widget build(BuildContext context) {
     final dueSoon = daysAway <= 7;
@@ -624,7 +654,7 @@ class _UpcomingMiniCard extends StatelessWidget {
               ),
               const Spacer(),
               Text(
-                _relative,
+                relativeDaysLabel(daysAway),
                 style: TextStyle(
                   color: dueSoon ? AppColors.accent : AppColors.textSecondary,
                   fontSize: 12,
@@ -1108,12 +1138,14 @@ class _ModsPanel extends StatelessWidget {
 class _MyVehicleSection extends StatelessWidget {
   final VehicleStats stats;
   final ServiceLife? oilLife; // null until we can compute it
+  final String lastServiceLabel; // e.g. "Last service 3 months ago"
   final VoidCallback onStatsTap;
   final VoidCallback onOilTap;
 
   const _MyVehicleSection({
     required this.stats,
     required this.oilLife,
+    required this.lastServiceLabel,
     required this.onStatsTap,
     required this.onOilTap,
   });
@@ -1208,9 +1240,9 @@ class _MyVehicleSection extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              const Text(
-                'Last service 3 months ago',
-                style: TextStyle(color: AppColors.accent, fontSize: 15),
+              Text(
+                lastServiceLabel,
+                style: const TextStyle(color: AppColors.accent, fontSize: 15),
               ),
             ],
           ),
@@ -1450,7 +1482,11 @@ class _MaintenanceLogPageState extends State<MaintenanceLogPage> {
 
   Future<void> _addManually() async {
     final record = await Navigator.of(context).push<MaintenanceRecord>(
-      MaterialPageRoute(builder: (_) => const AddMaintenancePage()),
+      MaterialPageRoute(
+        builder: (_) => AddMaintenancePage(
+          currentMileage: _state.currentMileageEstimate(DateTime.now()),
+        ),
+      ),
     );
     if (record != null) _state.addRecord(record);
   }
@@ -1461,6 +1497,9 @@ class _MaintenanceLogPageState extends State<MaintenanceLogPage> {
     final deleted = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => MaintenanceDetailPage(record: record)),
     );
+    // The detail page can stay open a while; make sure this page (and its
+    // context) is still around before touching either.
+    if (!mounted) return;
     if (deleted == true) {
       _state.removeRecord(record.id);
       _showUndoSnackBar(record);
@@ -2023,7 +2062,11 @@ InputDecoration _fieldDecoration(String label, {String? hint}) {
 }
 
 class AddMaintenancePage extends StatefulWidget {
-  const AddMaintenancePage({super.key});
+  // The vehicle's current mileage, used to pre-fill the field below (the user
+  // is expected to correct it if the service happened at a different reading).
+  final int currentMileage;
+
+  const AddMaintenancePage({super.key, required this.currentMileage});
 
   @override
   State<AddMaintenancePage> createState() => _AddMaintenancePageState();
@@ -2032,7 +2075,7 @@ class AddMaintenancePage extends StatefulWidget {
 class _AddMaintenancePageState extends State<AddMaintenancePage> {
   final _formKey = GlobalKey<FormState>();
   final _title = TextEditingController();
-  final _mileage = TextEditingController(text: '42180');
+  late final _mileage = TextEditingController(text: '${widget.currentMileage}');
   final _performedBy = TextEditingController(text: 'DIY');
   final _notes = TextEditingController();
   final List<_ItemDraft> _items = [_ItemDraft()];
@@ -2754,13 +2797,6 @@ class _UpcomingRow extends StatelessWidget {
     required this.onTap,
   });
 
-  String get _relative {
-    if (daysAway == 0) return 'Today';
-    if (daysAway == 1) return 'Tomorrow';
-    if (daysAway < 60) return 'in $daysAway days';
-    return 'in ${(daysAway / 30).round()} months';
-  }
-
   @override
   Widget build(BuildContext context) {
     final dueSoon = daysAway <= 7;
@@ -2837,7 +2873,7 @@ class _UpcomingRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      _relative,
+                      relativeDaysLabel(daysAway),
                       style: TextStyle(
                         color: dueSoon
                             ? AppColors.accent

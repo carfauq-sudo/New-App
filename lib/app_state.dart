@@ -74,6 +74,15 @@ class AppState extends ChangeNotifier {
       if (r.mileage > 0) OdometerReading(r.date, r.mileage),
   ];
 
+  /// The most recent record of any kind, by date, or null with no records.
+  MaintenanceRecord? get lastService {
+    MaintenanceRecord? best;
+    for (final r in _records) {
+      if (best == null || r.date.isAfter(best.date)) best = r;
+    }
+    return best;
+  }
+
   /// The most recent log of a given service type (by date), or null.
   MaintenanceRecord? latestOf(String serviceTypeId) {
     MaintenanceRecord? best;
@@ -86,6 +95,11 @@ class AppState extends ChangeNotifier {
 
   MileageEstimate? mileageEstimate(DateTime now) =>
       estimateMileage(odometerReadings, now);
+
+  /// Best current-mileage guess for pre-filling a form: the estimate if one
+  /// can be computed, otherwise the last mileage the user entered directly.
+  int currentMileageEstimate(DateTime now) =>
+      mileageEstimate(now)?.miles ?? _stats.mileage;
 
   /// Life left for an interval service (e.g. 'oil_change'), or null when there
   /// is nothing honest to compute: no log of that service, no interval on

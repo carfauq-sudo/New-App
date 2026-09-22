@@ -103,7 +103,7 @@ void main() {
   });
 
   test('default schedule is a known source and is labeled provisional', () {
-    final src = ref.defaultScheduleSource;
+    final src = ref.defaultScheduleSource!;
     expect(src.official, isFalse);
     expect(src.trustTier, 'provisional');
     // Provisional data must never be labeled as verified.
