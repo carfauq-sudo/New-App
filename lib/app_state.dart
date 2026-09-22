@@ -12,16 +12,20 @@ import 'package:flutter/foundation.dart';
 import 'calc/maintenance_math.dart';
 import 'data/vehicle_reference.dart';
 import 'maintenance_record.dart';
+import 'scheduled_maintenance.dart';
 import 'vehicle_stats.dart';
 
 class AppState extends ChangeNotifier {
   VehicleStats _stats = placeholderStats;
   final List<MaintenanceRecord> _records = [...placeholderRecords];
+  final List<ScheduledMaintenance> _scheduled = [...placeholderScheduled];
 
   VehicleStats get stats => _stats;
 
   /// Newest first.
   List<MaintenanceRecord> get records => UnmodifiableListView(_records);
+
+  List<ScheduledMaintenance> get scheduled => UnmodifiableListView(_scheduled);
 
   void setStats(VehicleStats stats) {
     _stats = stats;
@@ -38,6 +42,29 @@ class AppState extends ChangeNotifier {
     _records.removeWhere((r) => r.id == id);
     notifyListeners();
   }
+
+  void addScheduled(ScheduledMaintenance item) {
+    _scheduled.add(item);
+    notifyListeners();
+  }
+
+  /// Scheduled items on or after [now], soonest first.
+  List<ScheduledMaintenance> upcomingScheduled(DateTime now) {
+    final today = DateTime(now.year, now.month, now.day);
+    final upcoming = _scheduled.where((m) => !m.date.isBefore(today)).toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+    return upcoming;
+  }
+
+  /// Everything scheduled on one calendar day.
+  List<ScheduledMaintenance> scheduledOn(DateTime date) => _scheduled
+      .where(
+        (m) =>
+            m.date.year == date.year &&
+            m.date.month == date.month &&
+            m.date.day == date.day,
+      )
+      .toList();
 
   /// Every odometer reading we know about: the stats entry plus each log that
   /// recorded a mileage.

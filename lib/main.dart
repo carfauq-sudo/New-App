@@ -369,9 +369,9 @@ class LandingPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ---- Top 46%: My Vehicle ----
+          // ---- Top 42%: My Vehicle ----
           SizedBox(
-            height: screenHeight * 0.46,
+            height: screenHeight * 0.42,
             child: _MyVehicleSection(
               stats: appState.stats,
               oilLife: oilLife,
@@ -380,39 +380,297 @@ class LandingPage extends StatelessWidget {
             ),
           ),
 
-          // ---- Remaining space: navigation ----
+          // ---- Middle: a brief look at the calendar ----
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            child: _UpcomingPreview(appState: appState),
+          ),
+          const SizedBox(height: 16),
+
+          // ---- Remaining space: scrollable quick actions ----
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _NavCard(
-                    title: 'Maintenance logs',
-                    subtitle: 'Every service, receipt, and repair',
-                    icon: Icons.receipt_long_outlined,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => MaintenanceLogPage(appState: appState),
-                      ),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(left: 4, bottom: 10),
+                  child: _SectionLabel('Quick actions'),
+                ),
+                _NavCard(
+                  title: 'Maintenance logs',
+                  subtitle: 'Every service, receipt, and repair',
+                  icon: Icons.receipt_long_outlined,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => MaintenanceLogPage(appState: appState),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  _NavCard(
-                    title: 'Maintenance calendar',
-                    subtitle: 'What\'s due, and when',
-                    icon: Icons.calendar_month_outlined,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const MaintenanceCalendarPage(),
-                      ),
+                ),
+                const SizedBox(height: 12),
+                _NavCard(
+                  title: 'Maintenance calendar',
+                  subtitle: 'What\'s due, and when',
+                  icon: Icons.calendar_month_outlined,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          MaintenanceCalendarPage(appState: appState),
                     ),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 12),
+                _NavCard(
+                  title: 'Log a service',
+                  subtitle: 'Add a completed maintenance record',
+                  icon: Icons.add_circle_outline,
+                  onTap: () async {
+                    final record = await Navigator.of(context)
+                        .push<MaintenanceRecord>(
+                          MaterialPageRoute(
+                            builder: (_) => const AddMaintenancePage(),
+                          ),
+                        );
+                    if (record != null) appState.addRecord(record);
+                  },
+                ),
+                const SizedBox(height: 12),
+                _NavCard(
+                  title: 'Schedule maintenance',
+                  subtitle: 'Add something to the calendar',
+                  icon: Icons.edit_calendar_outlined,
+                  onTap: () async {
+                    final item = await Navigator.of(context)
+                        .push<ScheduledMaintenance>(
+                          MaterialPageRoute(
+                            builder: (_) => const AddScheduledPage(),
+                          ),
+                        );
+                    if (item != null) appState.addScheduled(item);
+                  },
+                ),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// A brief look at the calendar: the next couple of scheduled items, or a
+// prompt when there's nothing ahead. Tapping it (or "View all") opens the
+// full Maintenance calendar page.
+class _UpcomingPreview extends StatelessWidget {
+  final AppState appState;
+
+  const _UpcomingPreview({required this.appState});
+
+  void _openCalendar(BuildContext context) => Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => MaintenanceCalendarPage(appState: appState),
+    ),
+  );
+
+  Future<void> _scheduleSomething(BuildContext context) async {
+    final item = await Navigator.of(context).push<ScheduledMaintenance>(
+      MaterialPageRoute(builder: (_) => const AddScheduledPage()),
+    );
+    if (item != null) appState.addScheduled(item);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final upcoming = appState.upcomingScheduled(now).take(2).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(child: _SectionLabel('Upcoming')),
+            GestureDetector(
+              onTap: () => _openCalendar(context),
+              child: const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'View calendar',
+                  style: TextStyle(color: AppColors.accent, fontSize: 12),
+                ),
+              ),
+            ),
+          ],
+        ),
+        // Two slots side by side. An empty slot offers to schedule
+        // something instead of sitting blank.
+        SizedBox(
+          height: 92,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < 2; i++) ...[
+                if (i > 0) const SizedBox(width: 10),
+                Expanded(
+                  child: i < upcoming.length
+                      ? _UpcomingMiniCard(
+                          item: upcoming[i],
+                          daysAway: DateTime(
+                            upcoming[i].date.year,
+                            upcoming[i].date.month,
+                            upcoming[i].date.day,
+                          ).difference(today).inDays,
+                          onTap: () => _openCalendar(context),
+                        )
+                      : _ScheduleSomethingCard(
+                          onTap: () => _scheduleSomething(context),
+                        ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// One compact upcoming item, sized to sit side by side with another.
+class _UpcomingMiniCard extends StatelessWidget {
+  final ScheduledMaintenance item;
+  final int daysAway;
+  final VoidCallback onTap;
+
+  const _UpcomingMiniCard({
+    required this.item,
+    required this.daysAway,
+    required this.onTap,
+  });
+
+  String get _relative {
+    if (daysAway <= 0) return 'Today';
+    if (daysAway == 1) return 'Tomorrow';
+    if (daysAway < 60) return 'in $daysAway days';
+    return 'in ${(daysAway / 30).round()} months';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dueSoon = daysAway <= 7;
+    return Material(
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '${monthAbbreviation(item.date.month).toUpperCase()} ${item.date.day}',
+                      style: const TextStyle(
+                        color: AppColors.accent,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (dueSoon) ...[
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        'Due soon',
+                        style: TextStyle(
+                          color: AppColors.accent,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                item.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                _relative,
+                style: TextStyle(
+                  color: dueSoon ? AppColors.accent : AppColors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: dueSoon ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Filler for an empty upcoming slot: an inviting "add" tile instead of a gap.
+class _ScheduleSomethingCard extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _ScheduleSomethingCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: const Padding(
+          padding: EdgeInsets.all(10),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.add, color: AppColors.textSecondary, size: 20),
+              SizedBox(height: 4),
+              Text(
+                'Schedule something',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -2118,7 +2376,9 @@ class _ItemRow extends StatelessWidget {
 // amber and show short labels inside the box. Tapping a highlighted day opens
 // a sheet with the full details. The arrows in the header change months.
 class MaintenanceCalendarPage extends StatefulWidget {
-  const MaintenanceCalendarPage({super.key});
+  final AppState appState;
+
+  const MaintenanceCalendarPage({super.key, required this.appState});
 
   @override
   State<MaintenanceCalendarPage> createState() =>
@@ -2145,9 +2405,9 @@ class _MaintenanceCalendarPageState extends State<MaintenanceCalendarPage> {
   // First day of the month being shown.
   late DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
 
-  // Copy of the placeholder list so new items can be added. Like the log,
-  // this only lives in memory until the storage layer exists.
-  final List<ScheduledMaintenance> _scheduled = [...placeholderScheduled];
+  // Scheduled items live in the shared app state, so the Home page's preview
+  // and this page always agree.
+  AppState get _state => widget.appState;
 
   void _changeMonth(int delta) {
     setState(() => _month = DateTime(_month.year, _month.month + delta));
@@ -2219,11 +2479,9 @@ class _MaintenanceCalendarPageState extends State<MaintenanceCalendarPage> {
       MaterialPageRoute(builder: (_) => const AddScheduledPage()),
     );
     if (item != null) {
-      setState(() {
-        _scheduled.add(item);
-        // Jump to the month it landed in so the new item is visible.
-        _month = DateTime(item.date.year, item.date.month);
-      });
+      _state.addScheduled(item);
+      // Jump to the month it landed in so the new item is visible.
+      setState(() => _month = DateTime(item.date.year, item.date.month));
     }
   }
 
@@ -2272,6 +2530,11 @@ class _MaintenanceCalendarPageState extends State<MaintenanceCalendarPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Rebuilds when scheduled items change (added from here or from Home).
+    return ListenableBuilder(listenable: _state, builder: _buildPage);
+  }
+
+  Widget _buildPage(BuildContext context, Widget? _) {
     final today = DateTime.now();
     final daysInMonth = DateTime(_month.year, _month.month + 1, 0).day;
     // Weeks start on Sunday. DateTime.weekday is Mon=1..Sun=7, so `% 7` gives
@@ -2281,7 +2544,7 @@ class _MaintenanceCalendarPageState extends State<MaintenanceCalendarPage> {
 
     // Scheduled items in this month, grouped by day of the month.
     final byDay = <int, List<ScheduledMaintenance>>{};
-    for (final m in _scheduled) {
+    for (final m in _state.scheduled) {
       if (m.date.year == _month.year && m.date.month == _month.month) {
         byDay.putIfAbsent(m.date.day, () => []).add(m);
       }
@@ -2438,10 +2701,7 @@ class _MaintenanceCalendarPageState extends State<MaintenanceCalendarPage> {
   // The next few scheduled items from today on, soonest first.
   Widget _buildUpcoming(DateTime now) {
     final todayDate = DateTime(now.year, now.month, now.day);
-    final upcoming =
-        _scheduled.where((m) => !m.date.isBefore(todayDate)).toList()
-          ..sort((a, b) => a.date.compareTo(b.date));
-    final next = upcoming.take(5).toList();
+    final next = _state.upcomingScheduled(now).take(5).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2474,17 +2734,7 @@ class _MaintenanceCalendarPageState extends State<MaintenanceCalendarPage> {
               item.date.day,
             ).difference(todayDate).inDays,
             // Tapping opens the same details sheet as tapping that day.
-            onTap: () => _showDay(
-              item.date,
-              _scheduled
-                  .where(
-                    (m) =>
-                        m.date.year == item.date.year &&
-                        m.date.month == item.date.month &&
-                        m.date.day == item.date.day,
-                  )
-                  .toList(),
-            ),
+            onTap: () => _showDay(item.date, _state.scheduledOn(item.date)),
           ),
       ],
     );

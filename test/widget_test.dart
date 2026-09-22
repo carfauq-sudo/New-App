@@ -1,5 +1,6 @@
 // Smoke test: the app starts and shows the home page with a computed Oil tile.
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:new_app/main.dart';
 
@@ -20,9 +21,24 @@ void main() {
     await tester.pump();
 
     expect(find.text('My vehicle'), findsOneWidget);
-    expect(find.text('Maintenance logs'), findsOneWidget);
     expect(find.text('Oil (est.)'), findsOneWidget);
     // Computed from the placeholder oil-change log (39,100 mi -> 42,180 mi).
     expect(find.text('69%'), findsOneWidget);
+    expect(find.text('Upcoming'), findsOneWidget);
+
+    // "Maintenance logs" is further down the scrollable quick-actions list.
+    await tester.dragUntilVisible(
+      find.text('Maintenance logs'),
+      find.byType(Scrollable).last,
+      const Offset(0, -100),
+    );
+    expect(find.text('Maintenance logs'), findsOneWidget);
+
+    await tester.dragUntilVisible(
+      find.text('Schedule maintenance'),
+      find.byType(Scrollable).last,
+      const Offset(0, -100),
+    );
+    expect(find.text('Schedule maintenance'), findsOneWidget);
   });
 }
