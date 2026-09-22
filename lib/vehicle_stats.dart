@@ -5,7 +5,6 @@
 class VehicleStats {
   final int mileage; // odometer reading
   final double avgMpg;
-  final int fuelPercent; // 0-100
   final int oilLifePercent; // 0-100
   final int tirePsi;
   final DateTime updated; // when the user last entered these
@@ -13,7 +12,6 @@ class VehicleStats {
   const VehicleStats({
     required this.mileage,
     required this.avgMpg,
-    required this.fuelPercent,
     required this.oilLifePercent,
     required this.tirePsi,
     required this.updated,
@@ -24,7 +22,6 @@ class VehicleStats {
 final placeholderStats = VehicleStats(
   mileage: 42180,
   avgMpg: 22.4,
-  fuelPercent: 68,
   oilLifePercent: 60,
   tirePsi: 35,
   updated: DateTime(2026, 9, 21),

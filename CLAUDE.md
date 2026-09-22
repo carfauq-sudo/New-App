@@ -187,6 +187,33 @@ by `lib/data/vehicle_reference.dart`. Tests: `test/vehicle_reference_test.dart`.
   (curated files, a licensed data API, or AI-assisted import that the user
   confirms).
 
+## Oil life (computed, not typed in)
+
+The Home page's Oil tile is calculated from the last log tagged
+`serviceTypeId: 'oil_change'`, the estimated current mileage, and the interval
+in the reference data. Code: `lib/calc/maintenance_math.dart` (pure functions:
+`estimateMileage`, `computeLife`), `lib/app_state.dart` (shared in-memory logs
+and stats; `lifeFor`). Tests: `test/maintenance_math_test.dart`,
+`test/app_state_test.dart`, `test/widget_test.dart`.
+
+- Life left = 1 - max(miles used / interval miles, months used / interval
+  months) ("whichever comes first"). Either interval can be missing.
+- There is no live odometer, so current mileage is estimated from the user's
+  recorded readings and average driving rate; if there isn't enough history it
+  just uses the latest reading (no extrapolation).
+- It shows a dash until there is an oil-change log and the reference data has
+  loaded, and never invents a number. The interval is provisional (dealer
+  page), so the details sheet says so.
+- The truck's own dashboard oil % is stored separately as a comparison; the
+  tile shows the computed value. Logs added in the add-log form need the
+  "Service type" dropdown set for the app to recognize them.
+- Logs and stats are memory-only until the storage layer exists.
+- **Status for the weekly brief: the oil life algorithm is an experiment.** It
+  was built as a test and may or may not be used in the final version. Describe
+  it in the brief as exploratory (with its provisional interval and the
+  truck's own oil monitor as a possible replacement), not as a committed
+  feature.
+
 ## Deferred work (intentionally NOT built yet — needs doing later)
 
 - **Camera / photo access for receipt pictures.** The "Receipt picture" option
@@ -214,8 +241,9 @@ by `lib/data/vehicle_reference.dart`. Tests: `test/vehicle_reference_test.dart`.
   task on this vehicle, have an AI model pick credible videos, and open them
   on tap. Show them as suggestions, and keep safety-critical jobs (e.g.
   brakes) pointing to a mechanic per the guardrails above.
-- **Dashboard photos for vehicle stats.** The Home page shows Avg MPG, fuel,
-  oil life, and tire PSI tiles (plus the odometer) that the user types in via
+- **Dashboard photos for vehicle stats.** The Home page shows Avg MPG, oil
+  life, and tire PSI tiles (fuel level was removed on purpose: it changes too
+  often to be worth entering) (plus the odometer) that the user types in via
   an edit form. The "Dashboard photo" option is a "Coming soon" placeholder.
   Later: camera access plus a way to read the photo (OCR / vision model). Read
   values should be shown for the user to confirm before saving. Stats are also

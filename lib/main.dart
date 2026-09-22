@@ -5,6 +5,8 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'maintenance_record.dart';
 import 'scheduled_maintenance.dart';
 import 'vehicle_stats.dart';
+import 'app_state.dart';
+import 'data/vehicle_reference.dart';
 
 void main() {
   runApp(const MaintenanceGoApp());
@@ -54,9 +56,9 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _selectedIndex = 0;
-  // Dashboard stats live here so they survive switching tabs. (Still only in
-  // memory: they reset when the app restarts.)
-  VehicleStats _stats = placeholderStats;
+  // Shared data (stats and maintenance logs) lives here so it survives
+  // switching tabs and every screen sees the same copy. Memory only for now.
+  final AppState _appState = AppState();
 
   @override
   Widget build(BuildContext context) {
@@ -98,10 +100,7 @@ class _MainShellState extends State<MainShell> {
       // Only the selected tab is built. That way the 3D viewer isn't running
       // in the background while you're on another tab.
       body: switch (_selectedIndex) {
-        0 => LandingPage(
-          stats: _stats,
-          onStatsChanged: (s) => setState(() => _stats = s),
-        ),
+        0 => LandingPage(appState: _appState),
         1 => const MyVehiclePage(),
         2 => const _PlaceholderPage(label: 'Profile'),
         _ => const _PlaceholderPage(label: 'Settings'),
@@ -127,14 +126,9 @@ class _PlaceholderPage extends StatelessWidget {
 }
 
 class LandingPage extends StatelessWidget {
-  final VehicleStats stats;
-  final ValueChanged<VehicleStats> onStatsChanged;
+  final AppState appState;
 
-  const LandingPage({
-    super.key,
-    required this.stats,
-    required this.onStatsChanged,
-  });
+  const LandingPage({super.key, required this.appState});
 
   // Tapping the stats opens this sheet: type them in now, or (later) read
   // them from a dashboard photo.
@@ -174,14 +168,15 @@ class LandingPage extends StatelessWidget {
                   final updated = await Navigator.of(context)
                       .push<VehicleStats>(
                         MaterialPageRoute(
-                          builder: (_) => EditStatsPage(initial: stats),
+                          builder: (_) =>
+                              EditStatsPage(initial: appState.stats),
                         ),
                       );
-                  if (updated != null) onStatsChanged(updated);
+                  if (updated != null) appState.setStats(updated);
                 },
               ),
               // TODO(future): needs camera access plus a way to read the
-              // dashboard photo (odometer, MPG, fuel, oil life, tire
+              // dashboard photo (odometer, MPG, oil life, tire
               // pressure). Read values should be shown for the user to
               // confirm, not saved silently.
               _AddOptionTile(
@@ -207,10 +202,169 @@ class LandingPage extends StatelessWidget {
     );
   }
 
+  // Explains the Oil life number: what it's based on and how far to trust it.
+  void _showOilLife(
+    BuildContext context,
+    ServiceLife? life,
+    VehicleReference? reference,
+  ) {
+    final stats = appState.stats;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          child: life == null
+              ? _oilLifeEmpty(stats)
+              : _oilLifeDetails(life, stats, reference),
+        ),
+      ),
+    );
+  }
+
+  Widget _oilLifeEmpty(VehicleStats stats) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SheetTitle('Oil life'),
+        const SizedBox(height: 10),
+        const Text(
+          'Not enough information yet. Add a maintenance log for your last oil '
+          'change and choose "Engine oil and filter change" as its service '
+          'type. This tile will then work out the life left on its own.',
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 14,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 16),
+        _DetailRow(
+          'Dashboard',
+          '${stats.oilLifePercent}% (entered ${formatDate(stats.updated)})',
+        ),
+      ],
+    );
+  }
+
+  Widget _oilLifeDetails(
+    ServiceLife life,
+    VehicleStats stats,
+    VehicleReference? reference,
+  ) {
+    final r = life.result;
+    final source = reference?.defaultScheduleSource;
+    final interval = [
+      if (life.intervalMiles != null) formatMiles(life.intervalMiles!),
+      if (life.intervalMonths != null) '${life.intervalMonths} months',
+    ].join(' or ');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SheetTitle('Oil life'),
+        const SizedBox(height: 4),
+        Text(
+          '${r.percentLeft}% left (estimated)',
+          style: const TextStyle(
+            color: AppColors.accent,
+            fontSize: 26,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        if (r.overdue)
+          const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: Text(
+              'An oil change is due now.',
+              style: TextStyle(color: Colors.redAccent, fontSize: 14),
+            ),
+          ),
+        const SizedBox(height: 16),
+        _DetailRow(
+          'Last change',
+          '${formatDate(life.lastService.date)} at '
+              '${formatMiles(life.lastService.mileage)}',
+        ),
+        _DetailRow(
+          'Mileage now',
+          life.mileage.isProjected
+              ? '${formatMiles(life.mileage.miles)} (estimated from your '
+                    'driving rate)'
+              : '${formatMiles(life.mileage.miles)} (last reading, '
+                    '${formatDate(life.mileage.basedOnDate)})',
+        ),
+        _DetailRow('Used', formatMiles(r.milesUsed)),
+        if (r.milesRemaining != null)
+          _DetailRow('Remaining', formatMiles(r.milesRemaining!)),
+        if (r.dueDate != null) _DetailRow('Due around', formatDate(r.dueDate!)),
+        _DetailRow('Interval', interval),
+        const SizedBox(height: 10),
+        Text(
+          life.isProvisional
+              ? 'The interval is provisional: it comes from '
+                    '${source?.publisher ?? 'a third-party schedule'}, not '
+                    'from Toyota\'s official guide, and will be replaced once '
+                    'an exact lookup for your truck is available.'
+              : 'Interval from the manufacturer\'s schedule.',
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 13,
+            height: 1.4,
+          ),
+        ),
+        const Divider(height: 28, color: AppColors.border),
+        _DetailRow(
+          'Dashboard',
+          '${stats.oilLifePercent}% (entered ${formatDate(stats.updated)})',
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Your truck tracks oil life its own way, from how you drive, so its '
+          'number can differ. Reset it in Vehicle Settings after each oil '
+          'change.',
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 13,
+            height: 1.4,
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
 
+    // Rebuilds whenever the stats or logs change, so the Oil life tile keeps
+    // itself up to date. The reference data (intervals) loads in the
+    // background; until it arrives the tile just shows a dash.
+    return ListenableBuilder(
+      listenable: appState,
+      builder: (context, _) => FutureBuilder<VehicleReference>(
+        future: ReferenceRepository.instance.load(),
+        builder: (context, snapshot) {
+          final oilType = snapshot.data?.serviceType('oil_change');
+          final oilLife = oilType == null
+              ? null
+              : appState.lifeFor(oilType, DateTime.now());
+          return _buildBody(context, screenHeight, oilLife, snapshot.data);
+        },
+      ),
+    );
+  }
+
+  Widget _buildBody(
+    BuildContext context,
+    double screenHeight,
+    ServiceLife? oilLife,
+    VehicleReference? reference,
+  ) {
     return SafeArea(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -219,8 +373,10 @@ class LandingPage extends StatelessWidget {
           SizedBox(
             height: screenHeight * 0.46,
             child: _MyVehicleSection(
-              stats: stats,
+              stats: appState.stats,
+              oilLife: oilLife,
               onStatsTap: () => _showStatsOptions(context),
+              onOilTap: () => _showOilLife(context, oilLife, reference),
             ),
           ),
 
@@ -237,7 +393,7 @@ class LandingPage extends StatelessWidget {
                     icon: Icons.receipt_long_outlined,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => const MaintenanceLogPage(),
+                        builder: (_) => MaintenanceLogPage(appState: appState),
                       ),
                     ),
                   ),
@@ -693,9 +849,16 @@ class _ModsPanel extends StatelessWidget {
 
 class _MyVehicleSection extends StatelessWidget {
   final VehicleStats stats;
+  final ServiceLife? oilLife; // null until we can compute it
   final VoidCallback onStatsTap;
+  final VoidCallback onOilTap;
 
-  const _MyVehicleSection({required this.stats, required this.onStatsTap});
+  const _MyVehicleSection({
+    required this.stats,
+    required this.oilLife,
+    required this.onStatsTap,
+    required this.onOilTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -749,9 +912,19 @@ class _MyVehicleSection extends StatelessWidget {
                   label: 'Avg MPG',
                 ),
                 const SizedBox(width: 8),
-                _StatTile(value: '${stats.fuelPercent}%', label: 'Fuel'),
-                const SizedBox(width: 8),
-                _StatTile(value: '${stats.oilLifePercent}%', label: 'Oil life'),
+                // Worked out from the last oil-change log, not typed in. Shows
+                // a dash while there's nothing to compute it from. Tapping it
+                // explains the number.
+                _StatTile(
+                  value: oilLife == null
+                      ? '—'
+                      : '${oilLife!.result.percentLeft}%',
+                  label: 'Oil (est.)',
+                  valueColor: (oilLife?.result.overdue ?? false)
+                      ? Colors.redAccent
+                      : null,
+                  onTap: onOilTap,
+                ),
                 const SizedBox(width: 8),
                 _StatTile(value: '${stats.tirePsi}', label: 'Tire PSI'),
               ],
@@ -793,40 +966,70 @@ class _MyVehicleSection extends StatelessWidget {
 class _StatTile extends StatelessWidget {
   final String value;
   final String label;
+  final Color? valueColor;
+  final VoidCallback? onTap; // set when the tile does its own thing on tap
 
-  const _StatTile({required this.value, required this.label});
+  const _StatTile({
+    required this.value,
+    required this.label,
+    this.valueColor,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              value,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  color: valueColor ?? AppColors.textPrimary,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 11,
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+// Heading used at the top of the bottom sheets.
+class _SheetTitle extends StatelessWidget {
+  final String text;
+
+  const _SheetTitle(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        color: AppColors.textSecondary,
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
       ),
     );
   }
@@ -907,15 +1110,18 @@ class _NavCard extends StatelessWidget {
 // NOTE: records added here only live in memory for now (they disappear when
 // the app restarts) because the local storage layer isn't built yet.
 class MaintenanceLogPage extends StatefulWidget {
-  const MaintenanceLogPage({super.key});
+  final AppState appState;
+
+  const MaintenanceLogPage({super.key, required this.appState});
 
   @override
   State<MaintenanceLogPage> createState() => _MaintenanceLogPageState();
 }
 
 class _MaintenanceLogPageState extends State<MaintenanceLogPage> {
-  // Copy of the placeholder list so new entries can be added to it.
-  final List<MaintenanceRecord> _records = [...placeholderRecords];
+  // The logs live in the shared app state (so other screens, like the Oil
+  // life tile, see changes too).
+  AppState get _state => widget.appState;
 
   void _showAddOptions() {
     showModalBottomSheet<void>(
@@ -988,12 +1194,7 @@ class _MaintenanceLogPageState extends State<MaintenanceLogPage> {
     final record = await Navigator.of(context).push<MaintenanceRecord>(
       MaterialPageRoute(builder: (_) => const AddMaintenancePage()),
     );
-    if (record != null) {
-      setState(() {
-        _records.add(record);
-        _records.sort((a, b) => b.date.compareTo(a.date)); // newest first
-      });
-    }
+    if (record != null) _state.addRecord(record);
   }
 
   // Opens a record's detail page. The page reports back `true` if the user
@@ -1003,7 +1204,7 @@ class _MaintenanceLogPageState extends State<MaintenanceLogPage> {
       MaterialPageRoute(builder: (_) => MaintenanceDetailPage(record: record)),
     );
     if (deleted == true) {
-      setState(() => _records.removeWhere((r) => r.id == record.id));
+      _state.removeRecord(record.id);
       _showUndoSnackBar(record);
     }
   }
@@ -1036,11 +1237,7 @@ class _MaintenanceLogPageState extends State<MaintenanceLogPage> {
             label: 'Undo',
             textColor: AppColors.background,
             onPressed: () {
-              if (!mounted) return;
-              setState(() {
-                _records.add(record);
-                _records.sort((a, b) => b.date.compareTo(a.date));
-              });
+              _state.addRecord(record); // goes back in date order
             },
           ),
         ),
@@ -1055,7 +1252,14 @@ class _MaintenanceLogPageState extends State<MaintenanceLogPage> {
 
   @override
   Widget build(BuildContext context) {
-    final records = _records;
+    // Rebuilds when logs change (added, deleted, or undone).
+    return ListenableBuilder(
+      listenable: _state,
+      builder: (context, _) => _buildPage(context, _state.records),
+    );
+  }
+
+  Widget _buildPage(BuildContext context, List<MaintenanceRecord> records) {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -1579,6 +1783,7 @@ class _AddMaintenancePageState extends State<AddMaintenancePage> {
   final List<_ItemDraft> _removedItems = [];
 
   String _part = _partOptions.first;
+  String? _serviceTypeId; // optional: which kind of service this was
   RecordKind _kind = RecordKind.maintenance;
   DateTime _date = DateTime.now();
   TimeOfDay _time = TimeOfDay.now();
@@ -1630,6 +1835,7 @@ class _AddMaintenancePageState extends State<AddMaintenancePage> {
         id: 'u${DateTime.now().millisecondsSinceEpoch}',
         title: _title.text.trim(),
         part: _part,
+        serviceTypeId: _serviceTypeId,
         kind: _kind,
         date: DateTime(
           _date.year,
@@ -1725,6 +1931,38 @@ class _AddMaintenancePageState extends State<AddMaintenancePage> {
               onChanged: (v) => setState(() => _part = v ?? _part),
             ),
             gap,
+            // Optional: lets the app recognize things like your last oil
+            // change. Loads from the reference data in the background; if it
+            // isn't ready (or fails) the form still works without it.
+            FutureBuilder<VehicleReference>(
+              future: ReferenceRepository.instance.load(),
+              builder: (context, snapshot) {
+                final types = snapshot.data?.serviceTypes;
+                if (types == null) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: DropdownButtonFormField<String?>(
+                    initialValue: _serviceTypeId,
+                    isExpanded: true,
+                    dropdownColor: AppColors.surface,
+                    style: const TextStyle(color: AppColors.textPrimary),
+                    decoration: _fieldDecoration('Service type (optional)'),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('Other / not listed'),
+                      ),
+                      for (final t in types)
+                        DropdownMenuItem<String?>(
+                          value: t.id,
+                          child: Text(t.name, overflow: TextOverflow.ellipsis),
+                        ),
+                    ],
+                    onChanged: (v) => setState(() => _serviceTypeId = v),
+                  ),
+                );
+              },
+            ),
             Row(
               children: [
                 Expanded(
@@ -2891,9 +3129,6 @@ class _EditStatsPageState extends State<EditStatsPage> {
   late final _mpg = TextEditingController(
     text: widget.initial.avgMpg.toStringAsFixed(1),
   );
-  late final _fuel = TextEditingController(
-    text: '${widget.initial.fuelPercent}',
-  );
   late final _oil = TextEditingController(
     text: '${widget.initial.oilLifePercent}',
   );
@@ -2903,7 +3138,6 @@ class _EditStatsPageState extends State<EditStatsPage> {
   void dispose() {
     _mileage.dispose();
     _mpg.dispose();
-    _fuel.dispose();
     _oil.dispose();
     _psi.dispose();
     super.dispose();
@@ -2926,7 +3160,6 @@ class _EditStatsPageState extends State<EditStatsPage> {
       VehicleStats(
         mileage: int.parse(_mileage.text),
         avgMpg: double.parse(_mpg.text),
-        fuelPercent: int.parse(_fuel.text),
         oilLifePercent: int.parse(_oil.text),
         tirePsi: int.parse(_psi.text),
         updated: DateTime.now(),
@@ -2997,17 +3230,9 @@ class _EditStatsPageState extends State<EditStatsPage> {
             ),
             gap,
             TextFormField(
-              controller: _fuel,
-              style: const TextStyle(color: AppColors.textPrimary),
-              decoration: _fieldDecoration('Fuel level (%)'),
-              keyboardType: TextInputType.number,
-              validator: _range(0, 100),
-            ),
-            gap,
-            TextFormField(
               controller: _oil,
               style: const TextStyle(color: AppColors.textPrimary),
-              decoration: _fieldDecoration('Oil life (%)'),
+              decoration: _fieldDecoration('Dashboard oil life (%)'),
               keyboardType: TextInputType.number,
               validator: _range(0, 100),
             ),

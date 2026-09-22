@@ -36,6 +36,10 @@ class MaintenanceRecord {
   final RecordSource source;
   final List<LineItem> items;
   final String notes;
+  // Which kind of service this was (an id from the reference data, e.g.
+  // 'oil_change'), so the app can find things like the last oil change.
+  // Null when it doesn't match a known type.
+  final String? serviceTypeId;
 
   const MaintenanceRecord({
     required this.id,
@@ -48,6 +52,7 @@ class MaintenanceRecord {
     required this.items,
     this.source = RecordSource.userEntered,
     this.notes = '',
+    this.serviceTypeId,
   });
 
   int get totalCents => items.fold(0, (sum, item) => sum + item.totalCents);
@@ -108,6 +113,7 @@ String formatMiles(int miles) {
 final placeholderRecords = <MaintenanceRecord>[
   MaintenanceRecord(
     id: 'r11',
+    serviceTypeId: 'brake_fluid',
     title: 'Brake fluid flush',
     part: 'Wheels & Brakes › Brakes',
     kind: RecordKind.maintenance,
@@ -139,7 +145,23 @@ final placeholderRecords = <MaintenanceRecord>[
     notes: 'Front pads at roughly 2 mm. Rear pads checked, about 60% left.',
   ),
   MaintenanceRecord(
+    id: 'r12',
+    serviceTypeId: 'oil_change',
+    title: 'Oil & filter change',
+    part: 'Engine',
+    kind: RecordKind.maintenance,
+    date: DateTime(2026, 3, 12, 9, 30),
+    mileage: 39100,
+    performedBy: 'DIY',
+    items: const [
+      LineItem('0W-20 synthetic oil (per qt)', 799, quantity: 6),
+      LineItem('Oil filter', 899),
+    ],
+    notes: 'Reset the oil maintenance reminder afterward.',
+  ),
+  MaintenanceRecord(
     id: 'r09',
+    serviceTypeId: 'tire_rotation',
     title: 'Tire rotation',
     part: 'Wheels & Brakes › Wheel',
     kind: RecordKind.maintenance,
