@@ -413,18 +413,13 @@ class LandingPage extends StatelessWidget {
             ),
           ),
 
-          // ---- Middle: a brief look at the calendar ----
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            child: _UpcomingPreview(appState: appState),
-          ),
-          const SizedBox(height: 16),
-
-          // ---- Remaining space: scrollable quick actions ----
+          // ---- Remaining space: Upcoming + quick actions, one scroll ----
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
               children: [
+                _UpcomingPreview(appState: appState),
+                const SizedBox(height: 24),
                 const Padding(
                   padding: EdgeInsets.only(left: 4, bottom: 10),
                   child: _SectionLabel('Quick actions'),
@@ -502,11 +497,15 @@ class _UpcomingPreview extends StatelessWidget {
 
   const _UpcomingPreview({required this.appState});
 
-  void _openCalendar(BuildContext context) => Navigator.of(context).push(
-    MaterialPageRoute(
-      builder: (_) => MaintenanceCalendarPage(appState: appState),
-    ),
-  );
+  // Opening from an upcoming item jumps straight to that day's details;
+  // opening from "View calendar" just shows the current month.
+  void _openCalendar(BuildContext context, [DateTime? openDate]) =>
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) =>
+              MaintenanceCalendarPage(appState: appState, openDate: openDate),
+        ),
+      );
 
   Future<void> _scheduleSomething(BuildContext context) async {
     final item = await Navigator.of(context).push<ScheduledMaintenance>(
@@ -557,7 +556,7 @@ class _UpcomingPreview extends StatelessWidget {
                             upcoming[i].date.month,
                             upcoming[i].date.day,
                           ).difference(today).inDays,
-                          onTap: () => _openCalendar(context),
+                          onTap: () => _openCalendar(context, upcoming[i].date),
                         )
                       : _ScheduleSomethingCard(
                           onTap: () => _scheduleSomething(context),
@@ -2420,8 +2419,15 @@ class _ItemRow extends StatelessWidget {
 // a sheet with the full details. The arrows in the header change months.
 class MaintenanceCalendarPage extends StatefulWidget {
   final AppState appState;
+  // When set, the page opens straight to this date's month with that day's
+  // details sheet already up, instead of just showing the current month.
+  final DateTime? openDate;
 
-  const MaintenanceCalendarPage({super.key, required this.appState});
+  const MaintenanceCalendarPage({
+    super.key,
+    required this.appState,
+    this.openDate,
+  });
 
   @override
   State<MaintenanceCalendarPage> createState() =>
@@ -2445,12 +2451,29 @@ class _MaintenanceCalendarPageState extends State<MaintenanceCalendarPage> {
   ];
   static const _weekdayLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
-  // First day of the month being shown.
-  late DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
+  // First day of the month being shown: the requested date's month if one
+  // was passed in, otherwise the current month.
+  late DateTime _month = DateTime(
+    (widget.openDate ?? DateTime.now()).year,
+    (widget.openDate ?? DateTime.now()).month,
+  );
 
   // Scheduled items live in the shared app state, so the Home page's preview
   // and this page always agree.
   AppState get _state => widget.appState;
+
+  @override
+  void initState() {
+    super.initState();
+    final date = widget.openDate;
+    if (date != null) {
+      // Open after the first frame, once this page actually has a
+      // Navigator/Overlay above it to show the sheet in.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showDay(date, _state.scheduledOn(date));
+      });
+    }
+  }
 
   void _changeMonth(int delta) {
     setState(() => _month = DateTime(_month.year, _month.month + delta));
