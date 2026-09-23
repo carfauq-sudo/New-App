@@ -60,10 +60,18 @@ class _MainShellState extends State<MainShell> {
   // switching tabs and every screen sees the same copy. Memory only for now.
   final AppState _appState = AppState();
 
-  // A tab is only built the first time it's opened (so, e.g., the 3D viewer
-  // on My Vehicle doesn't load before you've ever visited it), but once
-  // built it's kept alive in the IndexedStack below rather than being torn
-  // down when you switch away, so coming back doesn't reload it from scratch.
+  // A tab is only built the first time it's opened, then kept alive in the
+  // IndexedStack below rather than being torn down when you switch away, so
+  // coming back doesn't reload it from scratch.
+  //
+  // My Vehicle (index 1) is the one exception: it hosts a WebView (the 3D
+  // viewer), and a known Flutter/iOS bug lets a WebView sitting off-screen in
+  // an IndexedStack keep intercepting taps meant for whichever tab IS showing
+  // (https://github.com/flutter/flutter/issues/144717) — every button on
+  // Home stopped responding to taps once My Vehicle had been opened, while
+  // scrolling still worked. So My Vehicle is rebuilt from scratch every time
+  // it's opened, same as before the keep-alive change, trading back its
+  // reload cost to avoid silently eating touches on every other tab.
   final Set<int> _visitedTabs = {0};
 
   void _selectTab(int index) {
@@ -109,18 +117,19 @@ class _MainShellState extends State<MainShell> {
           ),
         ],
       ),
-      // Each tab keeps its state once built (IndexedStack), so switching back
-      // to My Vehicle doesn't reload the 3D viewer; a tab not yet visited is
-      // left as a cheap placeholder instead of being built for nothing.
+      // Home/Profile/Settings keep their state once built (IndexedStack); a
+      // tab not yet visited is a cheap placeholder instead of being built for
+      // nothing. My Vehicle is deliberately NOT kept in the stack (see
+      // _visitedTabs above) — it's only ever present when actually selected,
+      // so its WebView is fully gone, not just hidden, whenever another tab
+      // is showing.
       body: IndexedStack(
         index: _selectedIndex,
         children: [
           _visitedTabs.contains(0)
               ? LandingPage(appState: _appState)
               : const SizedBox.shrink(),
-          _visitedTabs.contains(1)
-              ? const MyVehiclePage()
-              : const SizedBox.shrink(),
+          _selectedIndex == 1 ? const MyVehiclePage() : const SizedBox.shrink(),
           _visitedTabs.contains(2)
               ? const _PlaceholderPage(label: 'Profile')
               : const SizedBox.shrink(),
@@ -957,6 +966,11 @@ class _MyVehiclePageState extends State<MyVehiclePage> {
   // makes the 3D viewer reload or re-render from scratch.
   late final Widget _viewer = ModelViewer(
     src: 'assets/models/tacoma.glb',
+    // Shown instantly while the WebView engine boots and the 3D model loads
+    // in the background, instead of a blank screen — the actual load time is
+    // the same, but it no longer looks like nothing is happening.
+    poster: 'assets/images/tacoma.png',
+    loading: Loading.eager, // this page is only ever built while it's shown
     alt: 'Toyota Tacoma 3D model',
     backgroundColor: Colors.transparent,
     cameraControls: true,
