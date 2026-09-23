@@ -216,6 +216,20 @@ and stats; `lifeFor`). Tests: `test/maintenance_math_test.dart`,
 
 ## Deferred work (intentionally NOT built yet — needs doing later)
 
+- **Appearance settings (Units, Dark Mode) are stored but not applied.**
+  Settings > Appearance has a real, working Units toggle (miles/kilometers)
+  and Dark Mode switch (default on) — they persist in `AppState` as you
+  navigate, but neither changes anything yet:
+  - **Units:** nothing in the app converts miles to km anywhere (stats, logs,
+    the calendar, the reference data) — would mean touching every place a
+    distance is formatted or entered.
+  - **Dark mode:** the app's whole palette (`AppColors` in `lib/main.dart`) is
+    `static const` colors used inside many `const` widgets. Actually
+    re-theming on this toggle means turning those into theme-aware, non-const
+    lookups (e.g. via `Theme`/`ColorScheme` or an `InheritedWidget`) — a
+    larger, separate refactor, not a side effect of adding a settings toggle.
+    The dark palette was also a deliberate design decision (see "Design
+    decisions" above), so confirm before building a light variant.
 - **Camera / photo access for receipt pictures.** The "Receipt picture" option
   in the maintenance log's + menu is a "Coming soon" placeholder. Needs a
   camera/photo-picker package, iOS permission strings in `Info.plist`

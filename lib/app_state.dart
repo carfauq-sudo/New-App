@@ -9,15 +9,19 @@ import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
 
+import 'app_preferences.dart';
 import 'calc/maintenance_math.dart';
 import 'data/vehicle_reference.dart';
 import 'maintenance_record.dart';
 import 'scheduled_maintenance.dart';
+import 'user_profile.dart';
 import 'vehicle.dart';
 import 'vehicle_stats.dart';
 
 class AppState extends ChangeNotifier {
   VehicleStats _stats = placeholderStats;
+  UserProfile _profile = placeholderProfile;
+  AppPreferences _preferences = placeholderPreferences;
   final List<MaintenanceRecord> _records = [...placeholderRecords];
   final List<ScheduledMaintenance> _scheduled = [...placeholderScheduled];
   // Mutable copy of the registered vehicles, so editing one (license plate,
@@ -30,8 +34,20 @@ class AppState extends ChangeNotifier {
   late Vehicle _currentVehicle = _vehicles.first;
 
   VehicleStats get stats => _stats;
+  UserProfile get profile => _profile;
+  AppPreferences get preferences => _preferences;
   Vehicle get currentVehicle => _currentVehicle;
   List<Vehicle> get vehiclesList => UnmodifiableListView(_vehicles);
+
+  void setProfile(UserProfile profile) {
+    _profile = profile;
+    notifyListeners();
+  }
+
+  void setPreferences(AppPreferences preferences) {
+    _preferences = preferences;
+    notifyListeners();
+  }
 
   void setCurrentVehicle(Vehicle vehicle) {
     _currentVehicle = vehicle;

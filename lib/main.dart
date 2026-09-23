@@ -4,6 +4,8 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import 'maintenance_record.dart';
 import 'scheduled_maintenance.dart';
+import 'app_preferences.dart';
+import 'user_profile.dart';
 import 'vehicle.dart';
 import 'vehicle_stats.dart';
 import 'app_state.dart';
@@ -167,10 +169,13 @@ class SettingsPage extends StatelessWidget {
             const SizedBox(height: 24),
             _NavCard(
               title: 'Profile',
-              subtitle: 'Your account and preferences',
+              subtitle: appState.profile.name,
               icon: Icons.person_outline,
-              onTap: () => Navigator.of(context)
-                  .push(MaterialPageRoute(builder: (_) => const ProfilePage())),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ProfilePage(appState: appState),
+                ),
+              ),
             ),
             const SizedBox(height: 12),
             _NavCard(
@@ -183,9 +188,137 @@ class SettingsPage extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+            _NavCard(
+              title: 'Appearance',
+              subtitle:
+                  '${appState.preferences.darkMode ? 'Dark' : 'Light'} · '
+                  '${appState.preferences.units == DistanceUnit.miles ? 'Miles' : 'Kilometers'}',
+              icon: Icons.palette_outlined,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => AppearancePage(appState: appState),
+                ),
+              ),
+            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+// ---- Appearance ----
+// Units and dark/light mode. Both are stored, real preferences (they persist
+// as you navigate around), but neither is applied anywhere yet — see
+// app_preferences.dart for why each one is a bigger, separate job than a
+// settings toggle.
+class AppearancePage extends StatelessWidget {
+  final AppState appState;
+
+  const AppearancePage({super.key, required this.appState});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: appState,
+      builder: (context, _) {
+        final prefs = appState.preferences;
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          appBar: AppBar(
+            backgroundColor: AppColors.background,
+            surfaceTintColor: Colors.transparent,
+            title: const Text(
+              'Appearance',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          body: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+            children: [
+              const _SectionLabel('Units'),
+              _DetailSection(
+                children: [
+                  SegmentedButton<DistanceUnit>(
+                    segments: const [
+                      ButtonSegment(
+                        value: DistanceUnit.miles,
+                        label: Text('Miles'),
+                      ),
+                      ButtonSegment(
+                        value: DistanceUnit.kilometers,
+                        label: Text('Kilometers'),
+                      ),
+                    ],
+                    selected: {prefs.units},
+                    onSelectionChanged: (s) =>
+                        appState.setPreferences(prefs.copyWith(units: s.first)),
+                    style: SegmentedButton.styleFrom(
+                      foregroundColor: AppColors.textSecondary,
+                      selectedForegroundColor: AppColors.accent,
+                      selectedBackgroundColor: AppColors.accent.withValues(
+                        alpha: 0.18,
+                      ),
+                      side: const BorderSide(color: AppColors.border),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Not applied yet — mileage is shown in miles throughout '
+                    'the app regardless of this setting.',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              const _SectionLabel('Theme'),
+              _DetailSection(
+                children: [
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Dark Mode',
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                      Switch(
+                        value: prefs.darkMode,
+                        activeThumbColor: AppColors.accent,
+                        onChanged: (v) => appState.setPreferences(
+                          prefs.copyWith(darkMode: v),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Not applied yet — the app is dark-themed regardless of '
+                    'this setting.',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -524,12 +657,25 @@ class _VehicleSettingsPageState extends State<VehicleSettingsPage> {
   }
 }
 
-// Placeholder only, reached from Settings — nothing else added yet.
+// ---- Profile ----
+// Standard profile fields (name, email, phone, member since), all
+// placeholders — there's no auth/account system yet, so this is a stand-in
+// UI, editable locally like everything else, not tied to any real identity.
 class ProfilePage extends StatelessWidget {
-  const ProfilePage({super.key});
+  final AppState appState;
+
+  const ProfilePage({super.key, required this.appState});
 
   @override
   Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: appState,
+      builder: (context, _) => _buildPage(context),
+    );
+  }
+
+  Widget _buildPage(BuildContext context) {
+    final profile = appState.profile;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -543,11 +689,162 @@ class ProfilePage extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
+        actions: [
+          IconButton(
+            onPressed: () async {
+              final updated = await Navigator.of(context).push<UserProfile>(
+                MaterialPageRoute(
+                  builder: (_) => EditProfilePage(initial: profile),
+                ),
+              );
+              if (updated != null) appState.setProfile(updated);
+            },
+            icon: const Icon(Icons.edit_outlined, color: AppColors.accent),
+            tooltip: 'Edit profile',
+          ),
+        ],
       ),
-      body: const Center(
-        child: Text(
-          'Profile',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 17),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+        children: [
+          Center(
+            child: Column(
+              children: [
+                Text(
+                  profile.name,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  profile.email,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 28),
+          const _SectionLabel('Contact'),
+          _DetailSection(
+            children: [
+              _DetailRow('Email', profile.email),
+              _DetailRow('Phone', profile.phone),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const _SectionLabel('Account'),
+          _DetailSection(
+            children: [
+              _DetailRow('Member since', formatDate(profile.memberSince)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---- Edit profile (manual entry) ----
+class EditProfilePage extends StatefulWidget {
+  final UserProfile initial;
+
+  const EditProfilePage({super.key, required this.initial});
+
+  @override
+  State<EditProfilePage> createState() => _EditProfilePageState();
+}
+
+class _EditProfilePageState extends State<EditProfilePage> {
+  final _formKey = GlobalKey<FormState>();
+  late final _name = TextEditingController(text: widget.initial.name);
+  late final _email = TextEditingController(text: widget.initial.email);
+  late final _phone = TextEditingController(text: widget.initial.phone);
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _email.dispose();
+    _phone.dispose();
+    super.dispose();
+  }
+
+  String? _required(String? v) =>
+      (v == null || v.trim().isEmpty) ? 'Required' : null;
+
+  void _save() {
+    if (!_formKey.currentState!.validate()) return;
+    Navigator.pop(
+      context,
+      widget.initial.copyWith(
+        name: _name.text.trim(),
+        email: _email.text.trim(),
+        phone: _phone.text.trim(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const gap = SizedBox(height: 14);
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
+        title: const Text(
+          'Edit profile',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: _save,
+            child: const Text(
+              'Save',
+              style: TextStyle(color: AppColors.accent, fontSize: 16),
+            ),
+          ),
+        ],
+      ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          children: [
+            TextFormField(
+              controller: _name,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _fieldDecoration('Name'),
+              textCapitalization: TextCapitalization.words,
+              validator: _required,
+            ),
+            gap,
+            TextFormField(
+              controller: _email,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _fieldDecoration('Email'),
+              keyboardType: TextInputType.emailAddress,
+              validator: _required,
+            ),
+            gap,
+            TextFormField(
+              controller: _phone,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _fieldDecoration('Phone'),
+              keyboardType: TextInputType.phone,
+              validator: _required,
+            ),
+          ],
         ),
       ),
     );
