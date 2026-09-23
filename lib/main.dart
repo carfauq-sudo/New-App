@@ -148,7 +148,7 @@ class SettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Rebuilds so the "Current Vehicle" subtitle stays in sync if the
+    // Rebuilds so the "Vehicles" subtitle stays in sync if the
     // selected vehicle ever changes.
     return ListenableBuilder(
       listenable: appState,
@@ -174,7 +174,7 @@ class SettingsPage extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _NavCard(
-              title: 'Current Vehicle',
+              title: 'Vehicles',
               subtitle: appState.currentVehicle.displayName,
               icon: appState.currentVehicle.icon,
               onTap: () => Navigator.of(context).push(
@@ -190,7 +190,7 @@ class SettingsPage extends StatelessWidget {
   }
 }
 
-// ---- Current Vehicle picker ----
+// ---- Vehicles picker ----
 // Lets the user cycle through the vehicles registered on the account. Only
 // one exists right now (see vehicle.dart), so there's nothing to switch to
 // yet, but tapping a row already goes through the real
@@ -210,7 +210,7 @@ class CurrentVehiclePage extends StatelessWidget {
           backgroundColor: AppColors.background,
           surfaceTintColor: Colors.transparent,
           title: const Text(
-            'Current Vehicle',
+            'Vehicles',
             style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 17,
@@ -1235,6 +1235,14 @@ const _vehicleHotspots = [
 // Camera used for the full-vehicle view (also what we zoom back out to).
 const _defaultOrbit = '35deg 75deg 105%';
 
+// Heights of the Vehicle Data sheet (fraction of the tab's available height),
+// shared between the sheet itself and the 3D viewer's own layout below, so
+// the viewer can reserve exactly enough room above the sheet's resting
+// (quick-view) height instead of sitting under it.
+const _vehicleDataPeekSize = 0.12; // handle + "Vehicle Data · mileage" only
+const _vehicleDataQuickSize = 0.32; // + odometer and the three stat tiles
+const _vehicleDataFullSize = 0.62; // + vehicle/service detail sections
+
 class MyVehiclePage extends StatefulWidget {
   final AppState appState;
 
@@ -1399,40 +1407,59 @@ class _MyVehiclePageState extends State<MyVehiclePage> {
   Widget build(BuildContext context) {
     // The mods panel floats over the bottom of the viewer instead of sitting
     // below it, so the viewer keeps a constant size (resizing a web view every
-    // frame during the panel animation is a big source of choppiness).
+    // frame during the panel animation is a big source of choppiness). Same
+    // idea for the Vehicle Data sheet: rather than resize the viewer live as
+    // it's dragged, the viewer's box is sized once, up front, to leave just
+    // enough room above the sheet's resting (quick-view) height — so on
+    // landing here, the truck sits above the data instead of behind it.
     return SafeArea(
-      child: Stack(
-        children: [
-          Positioned.fill(child: _viewer),
-          // The persistent "Vehicle Data" sheet, only while looking at the
-          // whole truck — it hides itself once a hotspot's mods panel is
-          // showing, so the two never compete for the same space at the
-          // bottom of the screen.
-          if (_selected == null)
-            Positioned.fill(
-              child: _VehicleDataSheet(appState: widget.appState),
-            ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: AnimatedSlide(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-              offset: _selected == null ? const Offset(0, 1.2) : Offset.zero,
-              child: _lastPanel == null
-                  ? const SizedBox.shrink()
-                  : _ModsPanel(
-                      spot: _lastPanel!,
-                      parts: _vehicleHotspots
-                          .where((h) => h.parent == _lastPanel!.id)
-                          .toList(),
-                      onSelectPart: _focus,
-                      onClose: _back,
-                    ),
-            ),
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final reservedForSheet = _selected == null
+              ? constraints.maxHeight * _vehicleDataQuickSize
+              : 0.0;
+          return Stack(
+            children: [
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                bottom: reservedForSheet,
+                child: _viewer,
+              ),
+              // The persistent "Vehicle Data" sheet, only while looking at the
+              // whole truck — it hides itself once a hotspot's mods panel is
+              // showing, so the two never compete for the same space at the
+              // bottom of the screen.
+              if (_selected == null)
+                Positioned.fill(
+                  child: _VehicleDataSheet(appState: widget.appState),
+                ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: AnimatedSlide(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOut,
+                  offset: _selected == null
+                      ? const Offset(0, 1.2)
+                      : Offset.zero,
+                  child: _lastPanel == null
+                      ? const SizedBox.shrink()
+                      : _ModsPanel(
+                          spot: _lastPanel!,
+                          parts: _vehicleHotspots
+                              .where((h) => h.parent == _lastPanel!.id)
+                              .toList(),
+                          onSelectPart: _focus,
+                          onClose: _back,
+                        ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -1454,13 +1481,8 @@ class _VehicleDataSheet extends StatefulWidget {
 }
 
 class _VehicleDataSheetState extends State<_VehicleDataSheet> {
-  static const _minSize = 0.12;
-  static const _maxSize = 0.62;
-
   // Kept outside the sheet's own gesture handling so tapping the header can
-  // expand/collapse it too — a drag isn't the only way in. (It also gives a
-  // reliable, tap-based way to open it if a drag ever doesn't register, e.g.
-  // over the WebView underneath.)
+  // expand/collapse it too — a drag isn't the only way in.
   final _controller = DraggableScrollableController();
 
   @override
@@ -1469,10 +1491,14 @@ class _VehicleDataSheetState extends State<_VehicleDataSheet> {
     super.dispose();
   }
 
+  // Tapping the header toggles between the quick view (where the sheet lands
+  // by default) and the fully expanded detail view.
   void _toggle() {
-    final expand = _controller.size < (_minSize + _maxSize) / 2;
+    final expand =
+        !_controller.isAttached ||
+        _controller.size < (_vehicleDataQuickSize + _vehicleDataFullSize) / 2;
     _controller.animateTo(
-      expand ? _maxSize : _minSize,
+      expand ? _vehicleDataFullSize : _vehicleDataQuickSize,
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeOut,
     );
@@ -1505,9 +1531,14 @@ class _VehicleDataSheetState extends State<_VehicleDataSheet> {
 
     return DraggableScrollableSheet(
       controller: _controller,
-      initialChildSize: _minSize,
-      minChildSize: _minSize,
-      maxChildSize: _maxSize,
+      // Lands on the quick view (odometer + the three tiles) by default,
+      // rather than fully collapsed — that's the data worth seeing the
+      // moment you open the tab. Drag further for the full detail sections,
+      // or down to tuck it out of the way.
+      initialChildSize: _vehicleDataQuickSize,
+      minChildSize: _vehicleDataPeekSize,
+      maxChildSize: _vehicleDataFullSize,
+      snapSizes: const [_vehicleDataQuickSize],
       snap: true,
       builder: (context, scrollController) {
         return Container(
@@ -1563,10 +1594,24 @@ class _VehicleDataSheetState extends State<_VehicleDataSheet> {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Icon(
-                      Icons.keyboard_arrow_up,
-                      color: AppColors.textSecondary,
-                      size: 20,
+                    // Points the way the next tap will move the sheet,
+                    // instead of always pointing up.
+                    AnimatedBuilder(
+                      animation: _controller,
+                      builder: (context, _) {
+                        final expanded =
+                            _controller.isAttached &&
+                            _controller.size >
+                                (_vehicleDataQuickSize + _vehicleDataFullSize) /
+                                    2;
+                        return Icon(
+                          expanded
+                              ? Icons.keyboard_arrow_down
+                              : Icons.keyboard_arrow_up,
+                          color: AppColors.textSecondary,
+                          size: 20,
+                        );
+                      },
                     ),
                   ],
                 ),
