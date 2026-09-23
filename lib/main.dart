@@ -125,7 +125,9 @@ class _MainShellState extends State<MainShell> {
           _visitedTabs.contains(0)
               ? LandingPage(appState: _appState)
               : const SizedBox.shrink(),
-          _selectedIndex == 1 ? const MyVehiclePage() : const SizedBox.shrink(),
+          _selectedIndex == 1
+              ? MyVehiclePage(appState: _appState)
+              : const SizedBox.shrink(),
           _visitedTabs.contains(2)
               ? SettingsPage(appState: _appState)
               : const SizedBox.shrink(),
@@ -1234,7 +1236,9 @@ const _vehicleHotspots = [
 const _defaultOrbit = '35deg 75deg 105%';
 
 class MyVehiclePage extends StatefulWidget {
-  const MyVehiclePage({super.key});
+  final AppState appState;
+
+  const MyVehiclePage({super.key, required this.appState});
 
   @override
   State<MyVehiclePage> createState() => _MyVehiclePageState();
@@ -1400,6 +1404,14 @@ class _MyVehiclePageState extends State<MyVehiclePage> {
       child: Stack(
         children: [
           Positioned.fill(child: _viewer),
+          // The persistent "Vehicle Data" sheet, only while looking at the
+          // whole truck — it hides itself once a hotspot's mods panel is
+          // showing, so the two never compete for the same space at the
+          // bottom of the screen.
+          if (_selected == null)
+            Positioned.fill(
+              child: _VehicleDataSheet(appState: widget.appState),
+            ),
           Positioned(
             left: 0,
             right: 0,
@@ -1422,6 +1434,217 @@ class _MyVehiclePageState extends State<MyVehiclePage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ---- Vehicle Data sheet ----
+// A persistent drag handle at the bottom of the My Vehicle tab. Collapsed, it
+// peeks just enough to show a title and the odometer; dragged up, it reveals
+// everything the app currently knows about the vehicle. Placeholder data
+// throughout except mileage/MPG/tire PSI and the oil estimate, which are the
+// same real numbers shown on Home.
+class _VehicleDataSheet extends StatefulWidget {
+  final AppState appState;
+
+  const _VehicleDataSheet({required this.appState});
+
+  @override
+  State<_VehicleDataSheet> createState() => _VehicleDataSheetState();
+}
+
+class _VehicleDataSheetState extends State<_VehicleDataSheet> {
+  static const _minSize = 0.12;
+  static const _maxSize = 0.62;
+
+  // Kept outside the sheet's own gesture handling so tapping the header can
+  // expand/collapse it too — a drag isn't the only way in. (It also gives a
+  // reliable, tap-based way to open it if a drag ever doesn't register, e.g.
+  // over the WebView underneath.)
+  final _controller = DraggableScrollableController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    final expand = _controller.size < (_minSize + _maxSize) / 2;
+    _controller.animateTo(
+      expand ? _maxSize : _minSize,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Rebuilds when logs/stats/the current vehicle change, and once the
+    // reference data (for the oil estimate) finishes loading in the
+    // background — same pattern as the Home page's Oil tile.
+    return ListenableBuilder(
+      listenable: widget.appState,
+      builder: (context, _) => FutureBuilder<VehicleReference>(
+        future: ReferenceRepository.instance.load(),
+        builder: (context, snapshot) {
+          final oilType = snapshot.data?.serviceType('oil_change');
+          final oilLife = oilType == null
+              ? null
+              : widget.appState.lifeFor(oilType, DateTime.now());
+          return _buildSheet(context, oilLife);
+        },
+      ),
+    );
+  }
+
+  Widget _buildSheet(BuildContext context, ServiceLife? oilLife) {
+    final stats = widget.appState.stats;
+    final vehicle = widget.appState.currentVehicle;
+    final lastService = widget.appState.lastService;
+
+    return DraggableScrollableSheet(
+      controller: _controller,
+      initialChildSize: _minSize,
+      minChildSize: _minSize,
+      maxChildSize: _maxSize,
+      snap: true,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            // Page background, not surface — so the _DetailSection cards
+            // below (surface-colored) actually stand out against it, the
+            // same way they do on every other page in the app.
+            color: AppColors.background,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
+            children: [
+              // Drag handle.
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              // Visible even collapsed: a one-line summary with the single
+              // most important number (mileage) so it's useful before you
+              // even drag it up. Also doubles as a tap target to
+              // expand/collapse, so this doesn't rely on the drag gesture
+              // alone.
+              GestureDetector(
+                onTap: _toggle,
+                behavior: HitTestBehavior.opaque,
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Vehicle Data',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      formatMiles(stats.mileage),
+                      style: const TextStyle(
+                        color: AppColors.accent,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(
+                      Icons.keyboard_arrow_up,
+                      color: AppColors.textSecondary,
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              // Most important, most visible: the odometer, large.
+              const Text(
+                'Odometer',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                formatMiles(stats.mileage),
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 34,
+                  fontWeight: FontWeight.w700,
+                  height: 1.1,
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Next tier: the same three dashboard stats as Home, in the
+              // same tile style, so it reads as "more of the same," not a
+              // second, different way of showing this data.
+              Row(
+                children: [
+                  _StatTile(
+                    value: stats.avgMpg.toStringAsFixed(1),
+                    label: 'Avg MPG',
+                  ),
+                  const SizedBox(width: 8),
+                  _StatTile(
+                    value: oilLife == null
+                        ? '—'
+                        : '${oilLife.result.percentLeft}%',
+                    label: 'Oil (est.)',
+                    valueColor: (oilLife?.result.overdue ?? false)
+                        ? Colors.redAccent
+                        : null,
+                  ),
+                  const SizedBox(width: 8),
+                  _StatTile(
+                    value: '${stats.tirePsi}',
+                    label: 'Tire PSI',
+                    onTap: () => showTirePressures(context, stats),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              // Lower tier: identity/reference info — still useful, but not
+              // something you need at a glance every time.
+              const _SectionLabel('Vehicle'),
+              _DetailSection(
+                children: [
+                  _DetailRow('Vehicle', vehicle.displayName),
+                  if (vehicle.licensePlate.isNotEmpty)
+                    _DetailRow('License plate', vehicle.licensePlate),
+                  if (vehicle.color.isNotEmpty)
+                    _DetailRow('Color', vehicle.color),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const _SectionLabel('Service'),
+              _DetailSection(
+                children: [
+                  _DetailRow(
+                    'Last service',
+                    lastService == null
+                        ? 'No service logged yet'
+                        : relativeTimeAgo(lastService.date, DateTime.now()),
+                  ),
+                  _DetailRow('Stats updated', formatDate(stats.updated)),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -1626,7 +1849,11 @@ class _MyVehicleSection extends StatelessWidget {
                   onTap: onOilTap,
                 ),
                 const SizedBox(width: 8),
-                _StatTile(value: '${stats.tirePsi}', label: 'Tire PSI'),
+                _StatTile(
+                  value: '${stats.tirePsi}',
+                  label: 'Tire PSI',
+                  onTap: () => showTirePressures(context, stats),
+                ),
               ],
             ),
           ),
@@ -1689,25 +1916,46 @@ class _StatTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: AppColors.border),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Stack(
             children: [
-              Text(
-                value,
-                style: TextStyle(
-                  color: valueColor ?? AppColors.textPrimary,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    value,
+                    style: TextStyle(
+                      color: valueColor ?? AppColors.textPrimary,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 11,
+              // A small hint that there's more to see, only on tiles that
+              // actually go somewhere when tapped. Sideways, not diagonal —
+              // a diagonal arrow reads as "this value is trending up," which
+              // is exactly the wrong idea for something like tire pressure.
+              if (onTap != null)
+                const Positioned(
+                  top: 0,
+                  bottom: 0,
+                  right: 0,
+                  child: Center(
+                    child: Icon(
+                      Icons.arrow_forward,
+                      color: AppColors.textSecondary,
+                      size: 12,
+                    ),
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -1730,6 +1978,126 @@ class _SheetTitle extends StatelessWidget {
         color: AppColors.textSecondary,
         fontSize: 13,
         fontWeight: FontWeight.w500,
+      ),
+    );
+  }
+}
+
+// ---- Tire pressures sheet ----
+// Shared by the "Tire PSI" tile on Home and on the My Vehicle data sheet, so
+// there's one place that draws it instead of two. Shows all four tires,
+// arranged like the axles/driveline of the truck: front axle on top, rear on
+// the bottom, connected by a driveshaft line down the middle.
+void showTirePressures(BuildContext context, VehicleStats stats) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: AppColors.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (_) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _SheetTitle('Tire Pressures'),
+            const SizedBox(height: 20),
+            const Center(
+              child: Text(
+                'FRONT',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            _AxleRow(
+              leftPsi: stats.frontLeftPsi,
+              rightPsi: stats.frontRightPsi,
+            ),
+            // The driveshaft: a plain line connecting the two axles.
+            Center(
+              child: Container(width: 2, height: 28, color: AppColors.border),
+            ),
+            _AxleRow(leftPsi: stats.rearLeftPsi, rightPsi: stats.rearRightPsi),
+            const SizedBox(height: 6),
+            const Center(
+              child: Text(
+                'REAR',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Placeholder values.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+// One axle: a PSI reading at each end. No boxes or icons — just the numbers,
+// with the driveshaft line (added by the caller, between two of these) doing
+// all the "this is a truck" work.
+class _AxleRow extends StatelessWidget {
+  final int leftPsi;
+  final int rightPsi;
+
+  const _AxleRow({required this.leftPsi, required this.rightPsi});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: _TireValue(leftPsi)),
+        Expanded(child: _TireValue(rightPsi)),
+      ],
+    );
+  }
+}
+
+class _TireValue extends StatelessWidget {
+  final int psi;
+
+  const _TireValue(this.psi);
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: RichText(
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: '$psi',
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 26,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const TextSpan(
+              text: ' psi',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
