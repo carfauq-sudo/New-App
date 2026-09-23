@@ -13,14 +13,41 @@ import 'calc/maintenance_math.dart';
 import 'data/vehicle_reference.dart';
 import 'maintenance_record.dart';
 import 'scheduled_maintenance.dart';
+import 'vehicle.dart';
 import 'vehicle_stats.dart';
 
 class AppState extends ChangeNotifier {
   VehicleStats _stats = placeholderStats;
   final List<MaintenanceRecord> _records = [...placeholderRecords];
   final List<ScheduledMaintenance> _scheduled = [...placeholderScheduled];
+  // Mutable copy of the registered vehicles, so editing one (license plate,
+  // color, notes...) in its settings page actually sticks for the session,
+  // instead of trying to mutate the const list in vehicle.dart.
+  final List<Vehicle> _vehicles = [...vehicles];
+  // Which registered vehicle is showing. Only one exists today (see
+  // vehicle.dart), so this only ever gets set back to the same value, but the
+  // plumbing is in place for when a second vehicle is added.
+  late Vehicle _currentVehicle = _vehicles.first;
 
   VehicleStats get stats => _stats;
+  Vehicle get currentVehicle => _currentVehicle;
+  List<Vehicle> get vehiclesList => UnmodifiableListView(_vehicles);
+
+  void setCurrentVehicle(Vehicle vehicle) {
+    _currentVehicle = vehicle;
+    notifyListeners();
+  }
+
+  /// Saves edits made on a vehicle's settings page (matched by id). Also
+  /// updates currentVehicle if that's the one being edited, so the Home
+  /// header and the picker both pick up the change immediately.
+  void updateVehicle(Vehicle updated) {
+    final i = _vehicles.indexWhere((v) => v.id == updated.id);
+    if (i == -1) return;
+    _vehicles[i] = updated;
+    if (_currentVehicle.id == updated.id) _currentVehicle = updated;
+    notifyListeners();
+  }
 
   /// Newest first.
   List<MaintenanceRecord> get records => UnmodifiableListView(_records);

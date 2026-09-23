@@ -4,6 +4,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import 'maintenance_record.dart';
 import 'scheduled_maintenance.dart';
+import 'vehicle.dart';
 import 'vehicle_stats.dart';
 import 'app_state.dart';
 import 'data/vehicle_reference.dart';
@@ -106,19 +107,14 @@ class _MainShellState extends State<MainShell> {
             label: 'My Vehicle',
           ),
           NavigationDestination(
-            icon: Icon(Icons.person_outline, color: AppColors.textSecondary),
-            selectedIcon: Icon(Icons.person, color: AppColors.accent),
-            label: 'Profile',
-          ),
-          NavigationDestination(
             icon: Icon(Icons.settings_outlined, color: AppColors.textSecondary),
             selectedIcon: Icon(Icons.settings, color: AppColors.accent),
             label: 'Settings',
           ),
         ],
       ),
-      // Home/Profile/Settings keep their state once built (IndexedStack); a
-      // tab not yet visited is a cheap placeholder instead of being built for
+      // Home/Settings keep their state once built (IndexedStack); a tab not
+      // yet visited is a cheap placeholder instead of being built for
       // nothing. My Vehicle is deliberately NOT kept in the stack (see
       // _visitedTabs above) — it's only ever present when actually selected,
       // so its WebView is fully gone, not just hidden, whenever another tab
@@ -131,10 +127,7 @@ class _MainShellState extends State<MainShell> {
               : const SizedBox.shrink(),
           _selectedIndex == 1 ? const MyVehiclePage() : const SizedBox.shrink(),
           _visitedTabs.contains(2)
-              ? const _PlaceholderPage(label: 'Profile')
-              : const SizedBox.shrink(),
-          _visitedTabs.contains(3)
-              ? const _PlaceholderPage(label: 'Settings')
+              ? SettingsPage(appState: _appState)
               : const SizedBox.shrink(),
         ],
       ),
@@ -142,17 +135,418 @@ class _MainShellState extends State<MainShell> {
   }
 }
 
-class _PlaceholderPage extends StatelessWidget {
-  final String label;
+// ---- Settings tab ----
+// Profile used to be its own bottom-nav tab; it's now reached from here
+// instead, as a placeholder entry point. Nothing else has been added to
+// Settings yet.
+class SettingsPage extends StatelessWidget {
+  final AppState appState;
 
-  const _PlaceholderPage({required this.label});
+  const SettingsPage({super.key, required this.appState});
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        label,
-        style: const TextStyle(color: AppColors.textSecondary, fontSize: 17),
+    // Rebuilds so the "Current Vehicle" subtitle stays in sync if the
+    // selected vehicle ever changes.
+    return ListenableBuilder(
+      listenable: appState,
+      builder: (context, _) => SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+          children: [
+            const Text(
+              'Settings',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 28,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 24),
+            _NavCard(
+              title: 'Profile',
+              subtitle: 'Your account and preferences',
+              icon: Icons.person_outline,
+              onTap: () => Navigator.of(context)
+                  .push(MaterialPageRoute(builder: (_) => const ProfilePage())),
+            ),
+            const SizedBox(height: 12),
+            _NavCard(
+              title: 'Current Vehicle',
+              subtitle: appState.currentVehicle.displayName,
+              icon: appState.currentVehicle.icon,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => CurrentVehiclePage(appState: appState),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---- Current Vehicle picker ----
+// Lets the user cycle through the vehicles registered on the account. Only
+// one exists right now (see vehicle.dart), so there's nothing to switch to
+// yet, but tapping a row already goes through the real
+// AppState.setCurrentVehicle path for when a second vehicle is added.
+class CurrentVehiclePage extends StatelessWidget {
+  final AppState appState;
+
+  const CurrentVehiclePage({super.key, required this.appState});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: appState,
+      builder: (context, _) => Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.background,
+          surfaceTintColor: Colors.transparent,
+          title: const Text(
+            'Current Vehicle',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          children: [
+            for (final vehicle in appState.vehiclesList) ...[
+              _VehicleRow(
+                vehicle: vehicle,
+                selected: vehicle.id == appState.currentVehicle.id,
+                onSelect: () {
+                  appState.setCurrentVehicle(vehicle);
+                  Navigator.of(context).pop();
+                },
+                onOpenSettings: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => VehicleSettingsPage(
+                      appState: appState,
+                      vehicle: vehicle,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// One row in the vehicle picker: icon, name, and a radio-style indicator for
+// whether it's the currently selected vehicle.
+class _VehicleRow extends StatelessWidget {
+  final Vehicle vehicle;
+  final bool selected;
+  final VoidCallback onSelect; // tapping the photo/name/radio area
+  final VoidCallback onOpenSettings; // tapping the leading chevron
+
+  const _VehicleRow({
+    required this.vehicle,
+    required this.selected,
+    required this.onSelect,
+    required this.onOpenSettings,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: selected ? AppColors.accent : AppColors.border,
+          width: selected ? 1.5 : 1,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Row(
+        children: [
+          // Leading: tapping this makes the vehicle current. The selection
+          // indicator (highlighted when selected) sits at its leading edge,
+          // then the photo and name.
+          Expanded(
+            child: InkWell(
+              onTap: onSelect,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 0, 16),
+                child: Row(
+                  children: [
+                    Icon(
+                      selected
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_unchecked,
+                      color: selected
+                          ? AppColors.accent
+                          : AppColors.textSecondary,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 16),
+                    // The same photo shown on the Home page header, not the
+                    // generic car icon — this row is meant to be recognizable
+                    // as "your truck," not just "a vehicle."
+                    SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: Image.asset(
+                        vehicle.imagePath,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            vehicle.displayName,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          // Only shown once the user has filled it in.
+                          if (vehicle.licensePlate.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              vehicle.licensePlate,
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Trailing: a small grey arrow to this vehicle's own settings
+          // (make/model/trim, license plate, color, notes) — separate from
+          // selecting it.
+          InkWell(
+            onTap: onOpenSettings,
+            child: const Padding(
+              padding: EdgeInsets.all(14),
+              child: Icon(
+                Icons.chevron_right,
+                color: AppColors.textSecondary,
+                size: 20,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---- Per-vehicle settings ----
+// Reached via the chevron on a vehicle's row. Editable identity/reference
+// info for that one vehicle. Saving updates AppState (and, if this is the
+// current vehicle, the Home header picks it up immediately).
+class VehicleSettingsPage extends StatefulWidget {
+  final AppState appState;
+  final Vehicle vehicle;
+
+  const VehicleSettingsPage({
+    super.key,
+    required this.appState,
+    required this.vehicle,
+  });
+
+  @override
+  State<VehicleSettingsPage> createState() => _VehicleSettingsPageState();
+}
+
+class _VehicleSettingsPageState extends State<VehicleSettingsPage> {
+  final _formKey = GlobalKey<FormState>();
+  late final _year = TextEditingController(text: '${widget.vehicle.year}');
+  late final _make = TextEditingController(text: widget.vehicle.make);
+  late final _model = TextEditingController(text: widget.vehicle.model);
+  late final _trim = TextEditingController(text: widget.vehicle.trim);
+  late final _plate = TextEditingController(text: widget.vehicle.licensePlate);
+  late final _color = TextEditingController(text: widget.vehicle.color);
+  late final _notes = TextEditingController(text: widget.vehicle.notes);
+
+  @override
+  void dispose() {
+    _year.dispose();
+    _make.dispose();
+    _model.dispose();
+    _trim.dispose();
+    _plate.dispose();
+    _color.dispose();
+    _notes.dispose();
+    super.dispose();
+  }
+
+  String? _required(String? v) =>
+      (v == null || v.trim().isEmpty) ? 'Required' : null;
+
+  void _save() {
+    if (!_formKey.currentState!.validate()) return;
+    widget.appState.updateVehicle(
+      widget.vehicle.copyWith(
+        year: int.tryParse(_year.text.trim()) ?? widget.vehicle.year,
+        make: _make.text.trim(),
+        model: _model.text.trim(),
+        trim: _trim.text.trim(),
+        licensePlate: _plate.text.trim(),
+        color: _color.text.trim(),
+        notes: _notes.text.trim(),
+      ),
+    );
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const gap = SizedBox(height: 14);
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
+        title: const Text(
+          'Vehicle settings',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: _save,
+            child: const Text(
+              'Save',
+              style: TextStyle(color: AppColors.accent, fontSize: 16),
+            ),
+          ),
+        ],
+      ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: TextFormField(
+                    controller: _year,
+                    style: const TextStyle(color: AppColors.textPrimary),
+                    decoration: _fieldDecoration('Year'),
+                    keyboardType: TextInputType.number,
+                    validator: _required,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 3,
+                  child: TextFormField(
+                    controller: _make,
+                    style: const TextStyle(color: AppColors.textPrimary),
+                    decoration: _fieldDecoration('Make'),
+                    validator: _required,
+                  ),
+                ),
+              ],
+            ),
+            gap,
+            TextFormField(
+              controller: _model,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _fieldDecoration('Model'),
+              validator: _required,
+            ),
+            gap,
+            TextFormField(
+              controller: _trim,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _fieldDecoration('Trim'),
+              validator: _required,
+            ),
+            gap,
+            TextFormField(
+              controller: _plate,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _fieldDecoration(
+                'License plate (optional)',
+                hint: 'Shown under the vehicle in the picker once filled in',
+              ),
+              textCapitalization: TextCapitalization.characters,
+            ),
+            gap,
+            TextFormField(
+              controller: _color,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _fieldDecoration(
+                'Color (optional)',
+                hint: 'e.g. Magnetic Gray Metallic',
+              ),
+              textCapitalization: TextCapitalization.words,
+            ),
+            gap,
+            TextFormField(
+              controller: _notes,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _fieldDecoration('Notes (optional)'),
+              minLines: 3,
+              maxLines: 6,
+              textCapitalization: TextCapitalization.sentences,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Placeholder only, reached from Settings — nothing else added yet.
+class ProfilePage extends StatelessWidget {
+  const ProfilePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
+        title: const Text(
+          'Profile',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      body: const Center(
+        child: Text(
+          'Profile',
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 17),
+        ),
       ),
     );
   }
@@ -415,6 +809,7 @@ class LandingPage extends StatelessWidget {
             height: screenHeight * 0.42,
             child: _MyVehicleSection(
               stats: appState.stats,
+              vehicleName: appState.currentVehicle.displayName,
               oilLife: oilLife,
               lastServiceLabel: _lastServiceLabel(),
               onStatsTap: () => _showStatsOptions(context),
@@ -1151,12 +1546,14 @@ class _ModsPanel extends StatelessWidget {
 class _MyVehicleSection extends StatelessWidget {
   final VehicleStats stats;
   final ServiceLife? oilLife; // null until we can compute it
+  final String vehicleName; // e.g. "2026 Toyota Tacoma SR5"
   final String lastServiceLabel; // e.g. "Last service 3 months ago"
   final VoidCallback onStatsTap;
   final VoidCallback onOilTap;
 
   const _MyVehicleSection({
     required this.stats,
+    required this.vehicleName,
     required this.oilLife,
     required this.lastServiceLabel,
     required this.onStatsTap,
@@ -1183,9 +1580,9 @@ class _MyVehicleSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            '2026 Toyota Tacoma SR5',
-            style: TextStyle(
+          Text(
+            vehicleName,
+            style: const TextStyle(
               color: AppColors.textPrimary,
               fontSize: 28,
               fontWeight: FontWeight.w600,
